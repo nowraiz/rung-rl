@@ -24,6 +24,8 @@ def train(num_processes):
             processes.append(p)
         for p in processes:
             p.join() # wait for each game to finish
+        print(i*num_processes)
+    evaluate()
 def evaluate():
     wins = 0
     for _ in range(1000):

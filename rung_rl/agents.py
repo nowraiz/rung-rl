@@ -26,8 +26,7 @@ args["max_grad_norm"] = 0.5
 args["gae_lambda"] = 0.95
 args["num_steps"] = 14
 args["num_processes"] = 1
-torch.set_num_threads(1)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 
@@ -92,13 +91,13 @@ class PPOAgent():
         else:
             self.total_steps += 1
         self.rewards += (self.gamma**self.total_steps)*r
-        mask = torch.FloatTensor([[0.0]])
-        bad_mask = torch.FloatTensor([[0.0]])
+        mask = torch.FloatTensor([[0.0]],device = device)
+        bad_mask = torch.FloatTensor([[0.0]], device=device)
         self.rollouts.insert(self.obs, self.recurrent_hidden_states, self.action, self.action_log_prob, self.value, torch.Tensor([r]), mask, bad_mask )
         self.step += 1
 
     def get_obs(self, cards, hand):
-        return torch.Tensor(utils.flatten([card.to_int() if card else (0,0) for card in cards]) + utils.flatten([card.to_int() if card else (0,0) for card in hand]) + [card for card in self.cards_seen])
+        return torch.Tensor(utils.flatten([card.to_int() if card else (0,0) for card in cards]) + utils.flatten([card.to_int() if card else (0,0) for card in hand]) + [card for card in self.cards_seen], device=device)
 
     def save_obs(self, hand):
         for card in hand:
