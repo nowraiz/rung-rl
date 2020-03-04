@@ -91,8 +91,8 @@ class PPOAgent():
         else:
             self.total_steps += 1
         self.rewards += (self.gamma**self.total_steps)*r
-        mask = torch.FloatTensor([[0.0]],device = device)
-        bad_mask = torch.FloatTensor([[0.0]], device=device)
+        mask = torch.FloatTensor([[0.0]]).to(device)
+        bad_mask = torch.FloatTensor([[0.0]]).to(device)
         self.rollouts.insert(self.obs, self.recurrent_hidden_states, self.action, self.action_log_prob, self.value, torch.Tensor([r]), mask, bad_mask )
         self.step += 1
 
