@@ -12,8 +12,8 @@ def run_game():
     invalid_moves = [players[0].invalid_moves, players[1].invalid_moves, players[2].invalid_moves, players[3].invalid_moves]
     print(invalid_moves)
 
-def train(num_processes):
-    for i in range(100000//num_processes):
+def train(num_games, num_processes):
+    for i in range(num_games//num_processes):
         # pool = Pool(processes=4)
         if i % 4000 == 0:
             save_policy(i)
@@ -26,6 +26,14 @@ def train(num_processes):
             p.join() # wait for each game to finish
         print(i*num_processes)
     evaluate()
+
+def train_sequential(num_games):
+    for i in range(num_games):
+        if i % num_games/20 == 0:
+            save_policy(i)
+        run_game()
+    evaluate()
+    
 def evaluate():
     wins = 0
     for _ in range(1000):
