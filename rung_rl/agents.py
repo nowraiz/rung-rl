@@ -97,7 +97,7 @@ class PPOAgent():
         self.step += 1
 
     def get_obs(self, cards, hand):
-        return torch.Tensor(utils.flatten([card.to_int() if card else (0,0) for card in cards]) + utils.flatten([card.to_int() if card else (0,0) for card in hand]) + [card for card in self.cards_seen], device=device)
+        return torch.Tensor(utils.flatten([card.to_int() if card else (0,0) for card in cards]) + utils.flatten([card.to_int() if card else (0,0) for card in hand]) + [card for card in self.cards_seen]).to(device)
 
     def save_obs(self, hand):
         for card in hand:
