@@ -77,6 +77,7 @@ class PPOAgent():
         self.obs = self.get_obs(cards,hand)
         if self.step == 0:
             self.rollouts.obs[0].copy_(self.obs)
+            self.rollouts.to(device)
         if self.step >= args["num_steps"]:
             self.train()
             self.step = 1
