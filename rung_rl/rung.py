@@ -64,7 +64,7 @@ class Game():
         player = self.players[self.current_player]
         move = player.get_move(self.player_cards[self.current_player], self.hand)
         while not self.valid_move(move, self.current_player):
-            player.reward(-0.01, True)
+            player.reward(-0.001, True)
             move = player.get_move(self.player_cards[self.current_player], self.hand)
         card = self.peek_card(move, self.current_player)
         self.rung = card.suit
@@ -96,7 +96,7 @@ class Game():
             player = self.players[self.current_player]
             move = player.get_move(self.player_cards[self.current_player], self.hand)
             while not self.valid_move(move, self.current_player):
-                player.reward(-0.01, True)
+                player.reward(-0.001, True)
                 move = player.get_move(self.player_cards[self.current_player], self.hand)
             self.hand[self.hand_idx] = self.draw_card(move, self.current_player)
             player_idx[self.hand_idx] = self.current_player
