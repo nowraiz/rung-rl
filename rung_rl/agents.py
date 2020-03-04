@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import time
-import rung_rl.utils
+import rung_rl.utils as utils
 from rung_rl.model import Policy
 from rung_rl.storage import RolloutStorage
 from rung_rl.ppo_algo import PPO
@@ -27,7 +27,9 @@ args["gae_lambda"] = 0.95
 args["num_steps"] = 14
 args["num_processes"] = 1
 torch.set_num_threads(1)
-device = torch.device("cuda:0" if args["cuda"] else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
 
 OBSERVATION_SPACE = 86
 ACTIONS = 13

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import init
+from rung_rl.utils import init
 from rung_rl.distributions import Bernoulli, Categorical, DiagGaussian
 
 class Flatten(nn.Module):
