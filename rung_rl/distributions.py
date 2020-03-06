@@ -10,6 +10,8 @@ from rung_rl.utils import AddBias, init
 Modify standard PyTorch distributions so they are compatible with this code.
 """
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 #
 # Standardize distribution interfaces
 #
@@ -72,7 +74,7 @@ class Categorical(nn.Module):
         log = F.softmax(log,dim=-1)
 
         # print(log, action_mask)
-        mask = torch.tensor(action_mask, dtype=torch.bool)
+        mask = torch.tensor(action_mask, dtype=torch.bool).to(device)
         actions = sum(mask).item() # valid actions
         total_actions = len(log[0]) # total possible actions before
         if actions == total_actions:
@@ -88,7 +90,7 @@ class Categorical(nn.Module):
                 temp[0][i] = 0
             else:
                 temp[0][i] += balance
-        return torch.Tensor(temp)
+        return torch.Tensor(temp).to(device)
         
 
     def forward(self, x,action_mask):
