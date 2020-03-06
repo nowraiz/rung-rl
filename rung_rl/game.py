@@ -5,18 +5,19 @@ import numpy as np
 from multiprocessing import Process
 
 def run_game():
-    players = [PPOAgent(), PPOAgent(), PPOAgent(), PPOAgent()]
+    players = [PPOAgent(0), PPOAgent(1), PPOAgent(2), PPOAgent(3)]
     game = Game(players)
     game.initialize()
     game.play_game()
-    invalid_moves = [players[0].invalid_moves, players[1].invalid_moves, players[2].invalid_moves, players[3].invalid_moves]
-    print(invalid_moves)
 
 def train(num_games, num_processes):
+    model_version = 0
+    print("Starting training...")
     for i in range(num_games//num_processes):
         # pool = Pool(processes=4)
-        if i % 4000 == 0:
-            save_policy(i)
+        if i % (num_games//num_processes/20) == 0:
+            save_policy(model_version)
+            model_version += 1
         processes = []
         for j in range(num_processes):
             p = Process(target=run_game())
@@ -25,27 +26,31 @@ def train(num_games, num_processes):
         for p in processes:
             p.join() # wait for each game to finish
         print(i*num_processes)
-    evaluate()
+    save_policy("final")
+    evaluate(1000)
 
 def train_sequential(num_games):
     for i in range(num_games):
-        if i % num_games/20 == 0:
+        print(i)
+        if i % (num_games/20) == 0:
             save_policy(i)
         run_game()
-    evaluate()
-    
-def evaluate():
+    evaluate(1000)
+    save_policy("final")
+
+def evaluate(num_games):
+    print("Starting evaluation...")
     wins = 0
-    for _ in range(1000):
-        players = [PPOAgent(True), RandomAgent(), PPOAgent(True), RandomAgent()]
+    for _ in range(num_games):
+        players = [PPOAgent(True,0), RandomAgent(1), PPOAgent(True,2), RandomAgent(3)]
         game = Game(players, False, False)
         game.initialize()
         game.play_game()
         rewards = [players[0].rewards, players[1].rewards, players[2].rewards, players[3].rewards]
         win = int(players[0].rewards == max(rewards))
         wins += win
-        print(rewards, players[0].invalid_moves, players[2].invalid_moves)
-    print(wins)
+        # print(rewards, players[0].invalid_moves, players[2].invalid_moves)
+    print(wins, wins/num_games)
 
-# if __name__ == "__main__":
-#     train(4)
+if __name__ == "__main__":
+    train_sequential(100)

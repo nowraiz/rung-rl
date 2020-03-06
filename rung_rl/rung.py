@@ -1,4 +1,5 @@
 from rung_rl.deck import Deck
+from rung_rl.deck import Suit
 import random
 NUM_PLAYERS = 4 # the number of players is fixed for RUNG i.e. 4
 NUM_TEAMS = 2 # the number of teams is fixed for RUNG i.e. 2
@@ -61,14 +62,15 @@ class Game():
         assert(self.rung == None)
         # initialize the game and set the rung
         self.populate_initial()
-        player = self.players[self.current_player]
-        move = player.get_move(self.player_cards[self.current_player], self.hand)
-        while not self.valid_move(move, self.current_player):
-            player.reward(-0.001, True)
-            move = player.get_move(self.player_cards[self.current_player], self.hand)
-        card = self.peek_card(move, self.current_player)
-        self.rung = card.suit
-        self.DEBUG("Setting rung equal to", self.rung)
+        # player = self.players[self.current_player]
+        # move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung.value if self.rung else 0, self.hands, self.action_mask(self.current_player))
+        # while not self.valid_move(move, self.current_player):
+            # player.reward(0)
+            # move = player.get_move(self.player_cards[self.current_player], self.hand)
+        # assert(self.valid_move(move, self.current_player))
+        # card = self.peek_card(move, self.current_player)
+        self.rung = random.choice([suit for suit in Suit])
+        self.DEBUG("Rung : ", self.rung)
         self.populate_remaining_cards()
         assert(self.deck.length() == 0)
 
@@ -94,10 +96,12 @@ class Game():
         player_idx = [0,0,0,0]
         for i in range(4):
             player = self.players[self.current_player]
-            move = player.get_move(self.player_cards[self.current_player], self.hand)
-            while not self.valid_move(move, self.current_player):
-                player.reward(-0.001, True)
-                move = player.get_move(self.player_cards[self.current_player], self.hand)
+            move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung if self.rung else 0, self.hands+1,self.dominant_player == self.current_player, self.action_mask(self.current_player))
+
+                # player.reward(-0.001, True)
+                # move = player.get_move(self.player_cards[self.current_player], self.hand)
+            self.DEBUG(self.player_cards[self.current_player], move)
+            assert(self.valid_move(move, self.current_player))
             self.hand[self.hand_idx] = self.draw_card(move, self.current_player)
             player_idx[self.hand_idx] = self.current_player
             self.hand_idx += 1
@@ -118,16 +122,17 @@ class Game():
             self.scores[winner2] += reward
             if max(self.scores) > 6:
                 # game is done
-                self.done = 1
+                self.done = True
                 reward += 13 / REWARD_SCALE
+            if self.hands == 13:
+                self.done = True
             for i, player in enumerate(self.players):
                 if i == winner1 or i == winner2:
-                    player.reward(reward)
+                    player.reward(reward, self.done)
                 else:
-                    player.reward(-reward)
+                    player.reward(-reward, self.done)
             self.stack = 0
-            if self.hands == 13:
-                self.done = 1
+            
         else:
             for player in self.players:
                 player.reward(0)
@@ -212,3 +217,12 @@ class Game():
     def DEBUG(self, *args):
         if self.debug:
             print(*args)
+
+    def action_mask(self, player):
+        """
+        Returns the mask for the available actions for a player
+        """
+        if self.hand_idx == 0 or not self.has_suit(player):
+            return [1 if card else 0 for card in self.player_cards[player]]
+        else:
+            return [1 if card and card.suit == self.hand[0].suit else 0 for card in self.player_cards[player]]

@@ -50,9 +50,9 @@ class Policy(nn.Module):
     def forward(self, inputs, rnn_hxs, masks):
         raise NotImplementedError
 
-    def act(self, inputs, rnn_hxs, masks, deterministic=False):
+    def act(self, inputs, rnn_hxs, masks, action_mask,deterministic=False):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
-        dist = self.dist(actor_features)
+        dist = self.dist(actor_features, action_mask)
 
         if deterministic:
             action = dist.mode()
@@ -70,7 +70,7 @@ class Policy(nn.Module):
 
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
-        dist = self.dist(actor_features)
+        dist = self.dist(actor_features,[1 for _ in range(13)])
 
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()

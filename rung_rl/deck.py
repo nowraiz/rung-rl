@@ -5,10 +5,10 @@ class Suit(IntEnum):
     """
     Suit represents one of the possible suit of a playing card.
     """
-    SPADES = 0
-    DIAMONDS = 1
-    CLUBS = 2
-    HEARTS = 3
+    SPADES = 1
+    DIAMONDS = 2
+    CLUBS = 3
+    HEARTS = 4
 
 class Face(IntEnum):
     """
@@ -34,8 +34,8 @@ class Card():
     It has simply a face and suit.
     """
     def __init__(self, face, suit):
-        self.face = face
-        self.suit = suit
+        self.face : Face = face
+        self.suit : Suit = suit
 
     def __str__(self):
         face = None
@@ -45,6 +45,8 @@ class Card():
             face = str(self.face.name[0])
         return face + str(self.suit.name[0])
 
+    def __repr__(self):
+        return str(self)
     def to_int(self):
         return (self.face.value, self.suit.value)
 
