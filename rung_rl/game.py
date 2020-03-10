@@ -1,6 +1,6 @@
 from rung_rl.rung import Game
-from rung_rl.agents import RandomAgent
-from rung_rl.agents import PPOAgent, save_policy
+from rung_rl.agents import RandomAgent, HumanAgent
+from rung_rl.agents import PPOAgent, save_policy, update_lr
 import numpy as np
 from multiprocessing import Process
 
@@ -30,20 +30,23 @@ def train(num_games, num_processes):
     evaluate(1000)
 
 def train_sequential(num_games):
+    model_version = 0
     for i in range(num_games):
         print(i)
         if i % (num_games/20) == 0:
-            save_policy(i)
+            save_policy(model_version)
+            model_version += 1
         run_game()
+        update_lr(i,num_games)
     evaluate(1000)
     save_policy("final")
 
-def evaluate(num_games):
+def evaluate(num_games, debug=False):
     print("Starting evaluation...")
     wins = 0
     for _ in range(num_games):
-        players = [PPOAgent(True,0), RandomAgent(1), PPOAgent(True,2), RandomAgent(3)]
-        game = Game(players, False, False)
+        players = [PPOAgent(0, True), RandomAgent(1), PPOAgent(2, True), RandomAgent(3)]
+        game = Game(players, debug, debug)
         game.initialize()
         game.play_game()
         rewards = [players[0].rewards, players[1].rewards, players[2].rewards, players[3].rewards]
@@ -51,6 +54,12 @@ def evaluate(num_games):
         wins += win
         # print(rewards, players[0].invalid_moves, players[2].invalid_moves)
     print(wins, wins/num_games)
+
+def play_game():
+    players = [RandomAgent(0), HumanAgent(1), RandomAgent(2), RandomAgent(3)]
+    game = Game(players, True, True)
+    game.initialize()
+    game.play_game()
 
 if __name__ == "__main__":
     train_sequential(100)

@@ -18,13 +18,13 @@ class Observation():
                 num_hand : int,
                 dominating : bool,
                 id : int,
-                cards_seen ):
+                cards_seen  = None):
         self.cards : [Card] = cards # cards in agents hand
         self.hand : [Card] = hand # the current hand of the game
         self.stack : int = stack # the stack of hands beneath the current hand
         self.rung : Suit = rung # rung for this game
         self.num_hand : int = num_hand # number of the current hand
-        self.dominating : int = int(dominating) # the player id of the person dominating
+        self.dominating : int = dominating # the player id of the person dominating
         self.id : int = id # my player id
         self.cards_seen : [int] = cards_seen
         self.obs_vector = None
@@ -42,14 +42,12 @@ class Observation():
         doing rescaling as needed
         """
         self.obs_vector = \
-            flatten([self.scale_card(card) if card else (0,0) for card in self.cards]) + \
-            flatten([self.scale_card(card) if card else (0,0) for card in self.hand]) + \
-            self.cards_seen + \
-            [self.stack ,
-            self.num_hand , 
-            self.rung , 
-            self.id , 
-            self.dominating]
+            flatten([self.embed_card(card) for card in self.cards]) + \
+            flatten([self.embed_card(card) for card in self.hand]) + \
+            self.embed_suit(self.rung) + \
+            self.embed_player(self.id) + \
+            self.embed_player(self.dominating) + \
+            [self.stack, self.num_hand]
 
 
     def scale_card(self,card : Card):
@@ -58,4 +56,20 @@ class Observation():
         and suit
         """
         return ((card.face.value - 1), card.suit.value)
+
+    def embed_card(self, card: Card):
+        x = [0 for _ in range(17)]
+        if card is not None:
+            x[card.face.value - 2] = 1
+            x[card.suit.value + 13 - 1] = 1
+        return x
+    def embed_suit(self, suit):
+        x = [0 for _ in range(4)]
+        x[suit.value-1] = 1
+        return x
+    def embed_player(self, player):
+        x = [0 for _ in range(4)]
+        if player is not None:
+            x[player] = 1
+        return x
 

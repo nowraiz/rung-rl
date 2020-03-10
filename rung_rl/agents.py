@@ -19,10 +19,10 @@ args["clip_param"] = 0.2
 args["ppo_epoch"] = 4
 args["num_mini_batch"] = 1
 args["value_loss_coef"] = 0.5
-args["entropy_coef"] = 0.02
+args["entropy_coef"] = 0.01
 args["gamma"] = 0.995
 args["lr"] = 0.00025
-args["eps"] = 1e-5
+args["eps"] = 0.2
 args["max_grad_norm"] = 0.5
 args["gae_lambda"] = 0.95
 args["num_steps"] = 13
@@ -31,7 +31,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 
-OBSERVATION_SPACE = 91
+OBSERVATION_SPACE = 303
 ACTIONS = 13
 OBSERVATION_SPACE_SHAPE = torch.Size([OBSERVATION_SPACE])
 MODEL_PATH = os.getcwd() + "/models"
@@ -62,6 +62,8 @@ policy = PPO(
 def save_policy(i):
     torch.save(actor_critic, MODEL_PATH+"/v"+str(i) +".pt")
 
+def update_lr(i,n):
+    utils.update_linear_schedule(policy.optimizer, i, n,args["lr"])
 
 class PPOAgent():
     def __init__(self,id, eval=False):
@@ -97,17 +99,18 @@ class PPOAgent():
         self.step += 1
 
     def get_obs(self, cards, hand,stack,rung, num_hand, dominating):
-        obs = Observation(cards, hand, stack, rung, num_hand, dominating, self.id, self.cards_seen)
+        obs = Observation(cards, hand, stack, rung, num_hand, dominating, self.id)
         return torch.Tensor(obs.get()).to(device)
 
     def save_obs(self, hand):
+        return # temp
         for card in hand:
             if not card:
                 break
             self.save_card(card)
     def save_card(self, card):
-            idx = (card.suit.value - 1) * 13 + card.face.value - 2
-            self.cards_seen[idx] = 1
+        idx = (card.suit.value - 1) * 13 + card.face.value - 2
+        self.cards_seen[idx] = 1
     def train(self):
         if self.eval: # do not train if in evaluation mode
             return
@@ -132,6 +135,26 @@ class RandomAgent():
         return random.choice(choice)
     def reward(self, val, *args):
         self.rewards+= val
+    def save_obs(self, *args):
+        pass
+    def end(self, *args):
+        pass
+
+
+class HumanAgent():
+    def __init__(self, id):
+        print("You are player", id)
+        self.id = id
+        self.rewards = 0
+    def get_move(self, cards, hand, stack, rung, num_hand, dominating, action_mask):
+        print("Your cards: ", list(zip(cards, list(range(13)))))
+        move = int(input("Move: "))
+        while action_mask[move] == 0:
+            print("Invalid move")
+            move = int(input("Move: "))
+        return move
+    def reward(self, val, *args):
+        self.rewards += val
     def save_obs(self, *args):
         pass
     def end(self, *args):

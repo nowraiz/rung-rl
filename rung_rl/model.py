@@ -113,7 +113,6 @@ class NNBase(nn.Module):
             x = x.squeeze(0)
             hxs = hxs.squeeze(0)
         else:
-            print(x.size(), hxs.size())
             # print(hxs, hxs.size())
             # x is a (T, N, -1) tensor that has been flatten to (T * N, -1)
             N = hxs.size(0)
@@ -197,7 +196,7 @@ class CNNBase(NNBase):
 
 
 class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
+    def __init__(self, num_inputs, recurrent=True, hidden_size=64):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         if recurrent:

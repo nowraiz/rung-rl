@@ -71,32 +71,35 @@ class Categorical(nn.Module):
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
 
     def renormalize(self, log, action_mask):
-        log = F.softmax(log,dim=-1)
+        action_mask_log = torch.tensor([0 if m == 1 else float("-inf") for m in action_mask], device=device)
+        masked = log+action_mask_log
+        return masked
+        # log = F.softmax(log,dim=-1)
 
-        # print(log, action_mask)
-        mask = torch.tensor(action_mask, dtype=torch.bool).to(device)
-        actions = sum(mask).item() # valid actions
-        total_actions = len(log[0]) # total possible actions before
-        if actions == total_actions:
-            return log
-        # masked_log = log.masked_select(mask)
-        negmask = ~mask
-        # print(negmask)
-        remaining_log = log.masked_select(negmask)
-        balance = sum(remaining_log).item()/(actions)
-        temp = log.tolist()
-        for i in range(len(temp[0])):
-            if action_mask[i] == 0:
-                temp[0][i] = 0
-            else:
-                temp[0][i] += balance
-        return torch.Tensor(temp).to(device)
+        # # print(log, action_mask)
+        # mask = torch.tensor(action_mask, dtype=torch.bool).to(device)
+        # actions = sum(mask).item() # valid actions
+        # total_actions = len(log[0]) # total possible actions before
+        # if actions == total_actions:
+        #     return log
+        # # masked_log = log.masked_select(mask)
+        # negmask = ~mask
+        # # print(negmask)
+        # remaining_log = log.masked_select(negmask)
+        # balance = sum(remaining_log).item()/(actions)
+        # temp = log.tolist()
+        # for i in range(len(temp[0])):
+        #     if action_mask[i] == 0:
+        #         temp[0][i] = 0
+        #     else:
+        #         temp[0][i] += balance
+        # return torch.Tensor(temp).to(device)
         
 
     def forward(self, x,action_mask):
         x = self.linear(x)
         
-        return FixedCategorical(probs=self.renormalize(x,action_mask))
+        return FixedCategorical(logits=self.renormalize(x,action_mask))
 
 
 class DiagGaussian(nn.Module):
