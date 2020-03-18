@@ -16,7 +16,8 @@ class Observation():
                 stack : int, 
                 rung : Suit,
                 num_hand : int,
-                dominating : bool,
+                dominating : int,
+                last_hand : [Card],
                 id : int,
                 cards_seen  = None):
         self.cards : [Card] = cards # cards in agents hand
@@ -26,6 +27,7 @@ class Observation():
         self.num_hand : int = num_hand # number of the current hand
         self.dominating : int = dominating # the player id of the person dominating
         self.id : int = id # my player id
+        self.last_hand = last_hand
         self.cards_seen : [int] = cards_seen
         self.obs_vector = None
         self.build_vector()
@@ -44,6 +46,7 @@ class Observation():
         self.obs_vector = \
             flatten([self.embed_card(card) for card in self.cards]) + \
             flatten([self.embed_card(card) for card in self.hand]) + \
+            flatten([self.embed_card(card) for card in self.last_hand]) + \
             self.embed_suit(self.rung) + \
             self.embed_player(self.id) + \
             self.embed_player(self.dominating) + \

@@ -1,11 +1,15 @@
 from rung_rl.rung import Game
 from rung_rl.agents import RandomAgent, HumanAgent
-from rung_rl.agents import PPOAgent, save_policy, update_lr
+from rung_rl.agents import PPOAgent, save_policy, update_parameters
 import numpy as np
 from multiprocessing import Process
 
-def run_game():
-    players = [PPOAgent(0), PPOAgent(1), PPOAgent(2), PPOAgent(3)]
+def run_game(rand=False):
+    players = None;
+    if rand:
+        players = [PPOAgent(0), RandomAgent(1), PPOAgent(3), RandomAgent(4)]
+    else:
+        players = [PPOAgent(0), PPOAgent(1), PPOAgent(2), PPOAgent(3)]
     game = Game(players)
     game.initialize()
     game.play_game()
@@ -36,8 +40,8 @@ def train_sequential(num_games):
         if i % (num_games/20) == 0:
             save_policy(model_version)
             model_version += 1
-        run_game()
-        update_lr(i,num_games)
+        run_game(i%5 == 0)
+        update_parameters(i,num_games)
     evaluate(1000)
     save_policy("final")
 
@@ -52,7 +56,7 @@ def evaluate(num_games, debug=False):
         rewards = [players[0].rewards, players[1].rewards, players[2].rewards, players[3].rewards]
         win = int(players[0].rewards == max(rewards))
         wins += win
-        # print(rewards, players[0].invalid_moves, players[2].invalid_moves)
+        print(rewards[0])
     print(wins, wins/num_games)
 
 def play_game():

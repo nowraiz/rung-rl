@@ -58,6 +58,8 @@ class Deck():
         self.cards = []
         self.populate_cards()
         self.shuffle_cards()
+        self.shuffle_cards()
+        self.shuffle_cards()
     def populate_cards(self):
         for i in Suit:
             for j in Face:

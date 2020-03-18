@@ -26,6 +26,7 @@ class Game():
         self.rung = None # the rung for this round
         self.dominant_player = None
         self.done = False
+        self.last_hand = [None, None, None, None]
     def to_string(self, cards):
         return list(map(str, cards));
     def draw_card_from_deck(self):
@@ -96,7 +97,7 @@ class Game():
         for i in range(4):
             self.DEBUG("Player", self.current_player, " turn")
             player = self.players[self.current_player]
-            move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung if self.rung else 0, self.hands+1,self.dominant_player, self.action_mask(self.current_player))
+            move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung if self.rung else 0, self.hands+1,self.dominant_player, self.last_hand, self.action_mask(self.current_player))
 
                 # player.reward(-0.001, True)
                 # move = player.get_move(self.player_cards[self.current_player], self.hand)
@@ -137,6 +138,7 @@ class Game():
                 player.reward(0)
         self.dominant_player = dominant
         # clear the hand and set the new next player
+        self.last_hand = self.hand
         self.hand = [None for _ in range(4)]
         self.hand_idx = 0
         self.current_player = self.dominant_player

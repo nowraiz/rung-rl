@@ -15,14 +15,14 @@ from rung_rl.obs import Observation
 args = {}
 args["use_gae"] = True
 args["cuda"] = False
-args["clip_param"] = 0.2
+args["clip_param"] = 0.1
 args["ppo_epoch"] = 4
 args["num_mini_batch"] = 1
 args["value_loss_coef"] = 0.5
 args["entropy_coef"] = 0.01
-args["gamma"] = 0.995
-args["lr"] = 0.00025
-args["eps"] = 0.2
+args["gamma"] = 0.7
+args["lr"] = 7e-4
+args["eps"] = 1e-5
 args["max_grad_norm"] = 0.5
 args["gae_lambda"] = 0.95
 args["num_steps"] = 13
@@ -31,7 +31,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 
-OBSERVATION_SPACE = 303
+OBSERVATION_SPACE = 371
 ACTIONS = 13
 OBSERVATION_SPACE_SHAPE = torch.Size([OBSERVATION_SPACE])
 MODEL_PATH = os.getcwd() + "/models"
@@ -46,7 +46,8 @@ except FileNotFoundError:
     actor_critic = Policy(
         OBSERVATION_SPACE_SHAPE,
         ACTIONS)
-    actor_critic.to(device)
+
+actor_critic.to(device)
 
 policy = PPO(
     actor_critic,
@@ -62,8 +63,9 @@ policy = PPO(
 def save_policy(i):
     torch.save(actor_critic, MODEL_PATH+"/v"+str(i) +".pt")
 
-def update_lr(i,n):
+def update_parameters(i,n):
     utils.update_linear_schedule(policy.optimizer, i, n,args["lr"])
+    utils.update_epsilon(policy.optimizer, i, n, args["eps"])
 
 class PPOAgent():
     def __init__(self,id, eval=False):
@@ -76,8 +78,8 @@ class PPOAgent():
         self.invalid_moves = 0
         self.eval = eval
         self.id = id
-    def get_move(self, cards, hand, stack, rung, num_hand, dominating,action_mask):
-        self.obs = self.get_obs(cards,hand, stack, rung, num_hand, dominating)
+    def get_move(self, cards, hand, stack, rung, num_hand, dominating,last_hand, action_mask):
+        self.obs = self.get_obs(cards,hand, stack, rung, num_hand, dominating, last_hand)
         if self.step == 0:
             self.rollouts.obs[0].copy_(self.obs)
             self.rollouts.to(device)
@@ -98,8 +100,8 @@ class PPOAgent():
         self.rollouts.insert(self.obs, self.recurrent_hidden_states, self.action, self.action_log_prob, self.value, torch.Tensor([r]).to(device), mask, bad_mask )
         self.step += 1
 
-    def get_obs(self, cards, hand,stack,rung, num_hand, dominating):
-        obs = Observation(cards, hand, stack, rung, num_hand, dominating, self.id)
+    def get_obs(self, cards, hand,stack,rung, num_hand, dominating, last_hand):
+        obs = Observation(cards, hand, stack, rung, num_hand, dominating, last_hand, self.id)
         return torch.Tensor(obs.get()).to(device)
 
     def save_obs(self, hand):
@@ -130,7 +132,7 @@ class PPOAgent():
 class RandomAgent():
     def __init__(self, id):
         self.rewards = 0
-    def get_move(self, cards, hand, stack, rung, num_hand, dominating,action_mask):
+    def get_move(self, cards, hand, stack, rung, num_hand, dominating, last_hand, action_mask):
         choice = [i for i, _ in enumerate(action_mask) if action_mask[i]]
         return random.choice(choice)
     def reward(self, val, *args):
