@@ -24,7 +24,7 @@ class Game():
         self.player_cards = [[None for _ in range(13)] for _ in range(4)]
         self.players = players
         self.rung = None # the rung for this round
-        self.dominant_player = None
+        self.dominant = None
         self.done = False
         self.last_hand = [None, None, None, None]
     def to_string(self, cards):
@@ -95,9 +95,15 @@ class Game():
         self.DEBUG("Starting hand", self.hands + 1)
         player_idx = [0,0,0,0]
         for i in range(4):
+            if self.hand_idx == 0:
+                highest = None
+            else:
+                highest_idx = self.highest_card_index()
+                highest = player_idx[highest_idx]
+
             self.DEBUG("Player", self.current_player, " turn")
             player = self.players[self.current_player]
-            move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung if self.rung else 0, self.hands+1,self.dominant_player, self.last_hand, self.action_mask(self.current_player))
+            move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung if self.rung else 0, self.hands+1,self.dominant, self.last_hand, highest, self.action_mask(self.current_player))
 
                 # player.reward(-0.001, True)
                 # move = player.get_move(self.player_cards[self.current_player], self.hand)
@@ -114,17 +120,17 @@ class Game():
         self.hands += 1
         idx = self.highest_card_index() # get the highest card
         dominant = player_idx[idx] # get the player who played the highest card
-        dominant_player = self.players[dominant]
-        if self.hands == 13 or (dominant == self.dominant_player and self.hands > 2):
+        if self.hands == 13 or (dominant == self.dominant and self.hands > 2):
             winner1 = dominant
             winner2 = (dominant + 2) % 4
-            reward = self.stack
-            self.scores[winner1] += reward
-            self.scores[winner2] += reward
+            # reward = self.stack
+            reward = 0 
+            self.scores[winner1] += self.stack
+            self.scores[winner2] += self.stack
             if max(self.scores) > 6:
                 # game is done
                 self.done = True
-                reward += 13
+                reward = 1
                 self.DEBUG("WINNER: ", winner1, winner2)
             for i, player in enumerate(self.players):
                 if i == winner1 or i == winner2:
@@ -136,12 +142,12 @@ class Game():
         else:
             for player in self.players:
                 player.reward(0)
-        self.dominant_player = dominant
+        self.dominant = dominant
         # clear the hand and set the new next player
         self.last_hand = self.hand
         self.hand = [None for _ in range(4)]
         self.hand_idx = 0
-        self.current_player = self.dominant_player
+        self.current_player = self.dominant
         self.DEBUG("Ending hand", self.hands)
 
     def play_game(self):

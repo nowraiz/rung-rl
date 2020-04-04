@@ -18,6 +18,7 @@ class Observation():
                 num_hand : int,
                 dominating : int,
                 last_hand : [Card],
+                highest : int,
                 id : int,
                 cards_seen  = None):
         self.cards : [Card] = cards # cards in agents hand
@@ -30,6 +31,8 @@ class Observation():
         self.last_hand = last_hand
         self.cards_seen : [int] = cards_seen
         self.obs_vector = None
+        self.highest = highest # the player who has the highest card right now on the table
+        self.partner = (self.id + 2) % 4
         self.build_vector()
     
     def get(self):
@@ -46,10 +49,12 @@ class Observation():
         self.obs_vector = \
             flatten([self.embed_card(card) for card in self.cards]) + \
             flatten([self.embed_card(card) for card in self.hand]) + \
-            flatten([self.embed_card(card) for card in self.last_hand]) + \
+            self.cards_seen + \
             self.embed_suit(self.rung) + \
             self.embed_player(self.id) + \
             self.embed_player(self.dominating) + \
+            self.embed_player(self.highest) + \
+            self.embed_player(self.partner) + \
             [self.stack, self.num_hand]
 
 

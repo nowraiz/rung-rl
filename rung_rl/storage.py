@@ -116,7 +116,7 @@ class RolloutStorage(object):
         #                   num_mini_batch))
         #     mini_batch_size = batch_size // num_mini_batch
         batch_size = 13
-        mini_batch_size = 4
+        mini_batch_size = 5
         sampler = BatchSampler(
             SubsetRandomSampler(range(batch_size)),
             mini_batch_size,

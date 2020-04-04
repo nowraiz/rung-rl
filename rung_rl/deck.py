@@ -1,6 +1,5 @@
 from enum import IntEnum
-from numpy.random import permutation
-
+import random
 class Suit(IntEnum):
     """
     Suit represents one of the possible suit of a playing card.
@@ -58,8 +57,6 @@ class Deck():
         self.cards = []
         self.populate_cards()
         self.shuffle_cards()
-        self.shuffle_cards()
-        self.shuffle_cards()
     def populate_cards(self):
         for i in Suit:
             for j in Face:
@@ -67,7 +64,8 @@ class Deck():
         assert(self.length() == 52)
             
     def shuffle_cards(self):
-        self.cards = list(permutation(self.cards))
+        for _ in range(5):
+            random.shuffle(self.cards)
         pass # TODO:
     
     def pop(self):

@@ -16,11 +16,11 @@ args = {}
 args["use_gae"] = True
 args["cuda"] = False
 args["clip_param"] = 0.1
-args["ppo_epoch"] = 4
+args["ppo_epoch"] = 3
 args["num_mini_batch"] = 1
 args["value_loss_coef"] = 0.5
 args["entropy_coef"] = 0.01
-args["gamma"] = 0.7
+args["gamma"] = 0.995
 args["lr"] = 7e-4
 args["eps"] = 1e-5
 args["max_grad_norm"] = 0.5
@@ -31,7 +31,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 
-OBSERVATION_SPACE = 371
+OBSERVATION_SPACE = 363
 ACTIONS = 13
 OBSERVATION_SPACE_SHAPE = torch.Size([OBSERVATION_SPACE])
 MODEL_PATH = os.getcwd() + "/models"
@@ -65,7 +65,7 @@ def save_policy(i):
 
 def update_parameters(i,n):
     utils.update_linear_schedule(policy.optimizer, i, n,args["lr"])
-    utils.update_epsilon(policy.optimizer, i, n, args["eps"])
+    # utils.update_epsilon(policy.optimizer, i, n, args["eps"])
 
 class PPOAgent():
     def __init__(self,id, eval=False):
@@ -78,8 +78,8 @@ class PPOAgent():
         self.invalid_moves = 0
         self.eval = eval
         self.id = id
-    def get_move(self, cards, hand, stack, rung, num_hand, dominating,last_hand, action_mask):
-        self.obs = self.get_obs(cards,hand, stack, rung, num_hand, dominating, last_hand)
+    def get_move(self, cards, hand, stack, rung, num_hand, dominating,last_hand, highest, action_mask):
+        self.obs = self.get_obs(cards,hand, stack, rung, num_hand, dominating, last_hand, highest)
         if self.step == 0:
             self.rollouts.obs[0].copy_(self.obs)
             self.rollouts.to(device)
@@ -91,21 +91,18 @@ class PPOAgent():
         self.save_card(cards[self.action])
         return self.action
     
-    def reward(self, r, done = False, invalid = False):
-        if invalid:
-            self.invalid_moves += 1
+    def reward(self, r, done = False):
         self.rewards += r
-        mask = torch.FloatTensor([[0.0]] if done else [[1.0]]).to(device)
+        mask = torch.FloatTensor([[1.0]]).to(device)
         bad_mask = torch.FloatTensor([[1.0]]).to(device)
         self.rollouts.insert(self.obs, self.recurrent_hidden_states, self.action, self.action_log_prob, self.value, torch.Tensor([r]).to(device), mask, bad_mask )
         self.step += 1
 
-    def get_obs(self, cards, hand,stack,rung, num_hand, dominating, last_hand):
-        obs = Observation(cards, hand, stack, rung, num_hand, dominating, last_hand, self.id)
+    def get_obs(self, cards, hand,stack,rung, num_hand, dominating, last_hand, highest):
+        obs = Observation(cards, hand, stack, rung, num_hand, dominating, last_hand, highest, self.id, self.cards_seen)
         return torch.Tensor(obs.get()).to(device)
 
     def save_obs(self, hand):
-        return # temp
         for card in hand:
             if not card:
                 break
@@ -124,15 +121,17 @@ class PPOAgent():
                                  args["gae_lambda"], False)
 
         value_loss, action_loss, dist_entropy = policy.update(self.rollouts)
+        self.step = 0
 
     def end(self):
-        self.train()
+        pass
+        # self.train()
         # print(self.rewards)
 
 class RandomAgent():
     def __init__(self, id):
         self.rewards = 0
-    def get_move(self, cards, hand, stack, rung, num_hand, dominating, last_hand, action_mask):
+    def get_move(self, cards, hand, stack, rung, num_hand, dominating, last_hand, highest,  action_mask):
         choice = [i for i, _ in enumerate(action_mask) if action_mask[i]]
         return random.choice(choice)
     def reward(self, val, *args):
@@ -140,6 +139,8 @@ class RandomAgent():
     def save_obs(self, *args):
         pass
     def end(self, *args):
+        pass
+    def train(self, *args):
         pass
 
 
