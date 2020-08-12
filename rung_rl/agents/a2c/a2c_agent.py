@@ -69,7 +69,7 @@ class A2CAgent:
             eps=args["eps"],
             alpha=args["alpha"],
             max_grad_norm=args["max_grad_norm"],
-            acktr=True)
+            acktr=False)
 
         self.rollouts = RolloutStorage(args["num_steps"], 1, OBSERVATION_SPACE_SHAPE, ACTIONS,
                                        self.actor_critic.recurrent_hidden_state_size)
