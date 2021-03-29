@@ -1,8 +1,8 @@
 from rung_rl.agents.a2c.a2c_agent import A2CAgent
-from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.rung import Game
+import rung_rl.plotter as plt
 import torch
 import torch.multiprocessing as mp
 
@@ -66,84 +66,69 @@ def run_game(players):
 
 
 def train_a2c(num_games, debug=False):
-    print("Starting training")
-    # players = [A2CAgent(0), A2CAgent(1), A2CAgent(2), DQNAgent(3)]
-    # players4 = [RandomAgent(0), RandomAgent(1), RandomAgent(2), RandomAgent(4)]
-    players = [A2CAgent(0), A2CAgent(1), A2CAgent(2), A2CAgent(3)]
-    players2 = [players[0], RandomAgent(1), players[2], RandomAgent(3)]
-    players3 = [RandomAgent(0), players[1], RandomAgent(2), players[3]]
-    wins = 0
-    reward = 0
+    players = [A2CAgent(), A2CAgent(), A2CAgent(), A2CAgent()]
+    win_rate_radiant = []
+    win_rate_dire = []
+    games = []
+    for i in range(num_games):
+        game = Game(players, False, False)
+        game.initialize()
+        game.play_game()
+
+        if i % 6 == 0:
+            for player in players:
+                player.optimize_model()
+            print()
+        if i % 100 == 0:
+            print("Total Games: {}".format(i))
+
+        if i % 5000 == 0:
+            players[0].save_model("final")
+            print("Steps done: {}".format(players[0].steps))
+
+        if i % 5000 == 0 and i != 0:
+            temp_players_radiant = [players[0], RandomAgent(1), players[2], RandomAgent(3)]
+            temp_players_dire = [RandomAgent(0), players[1], RandomAgent(2), players[3]]
+            # for player in players:
+            #     player.eval = True
+            win_rate_r = evaluate(100, temp_players_radiant, 0)
+            win_rate_d = evaluate(100, temp_players_dire, 1)
+            games.append(i)
+            win_rate_radiant.append(win_rate_r)
+            win_rate_dire.append(win_rate_d)
+
+            plt.plot(games, win_rate_radiant, win_rate_dire)
+            plt.savefig()
+            # for player in players:
+            #     player.eval = False
+
+    plt.savefig()
+    players[0].save_model("final")
+    print("Steps done: {}".format(players[0].steps))
+    
+
+def test():
+    agent = DQNAgent()
+    agent.load_model()
+    agent.eval = True
+    players = [agent, agent, agent, agent]
+    game = Game(players)
+    game.initialize()
+    game.play_game()
+
+
+def evaluate(num_games, players, idx=0, debug=False):
+    print("Starting evaluation...")
+    players[idx].reset()
     for i in range(num_games):
         game = Game(players, debug, debug)
         game.initialize()
         game.play_game()
-        rewards = [players[0].get_rewards(), players[1].get_rewards()]
-        wins += int(rewards[0] == max(rewards))
-        reward += rewards[0]
-        if i % 250 == 0:
-            print("Last 250 games win rate: {}. Rewards {}. Total games {}"
-                  .format(wins / 250, reward / 250, i))
-            wins = 0
-            reward = 0
-        for player in players:
-            if type(player) == A2CAgent:
-                player.train()
-        # print()
-        if i % 5000 == 0:
-            for player in players:
-                if type(player) == A2CAgent:
-                    player.save_model()
-        if i % 10000 == 0 and i != 0:
-            random_wins_team_0 = strategy_collapse(players2, 0)
-            random_wins_team_1 = strategy_collapse(players3, 1)
-            print("Evaluation of 200 games with random: Team_radiant_0_2 {}, Team_dire_1_3 {}"
-                  .format(random_wins_team_0/200, random_wins_team_1/200))
-    for player in players:
-        if type(player) == A2CAgent:
-            player.save_model()
-    print("Starting evaluation")
-    evaluate(1000, players)
 
+    wins = players[idx].reset()
+    print(wins, wins / num_games)
+    return wins / num_games * 100
 
-def strategy_collapse(players, idx):
-    wins = 0
-    for i in range(200):
-        game = Game(players)
-        game.initialize()
-        game.play_game()
-        for player in players:
-            if type(player) == DQNAgent:
-                player.optimize_model()
-        rewards = [players[0].get_rewards(), players[1].get_rewards()]
-        wins += int(rewards[idx] == max(rewards))
-        print()
-    return wins
-
-
-def evaluate(num_games, players, debug=False):
-    print("Starting evaluation...")
-    wins = 0
-    r = 0
-    for _ in range(num_games):
-        # players = [PPOAgent(0, True), RandomAgent(1), PPOAgent(2, True), RandomAgent(3)]
-        game = Game(players, debug, debug)
-        game.initialize()
-        game.play_game()
-        rewards = [players[0].get_rewards(), players[1].get_rewards()]
-        win = int(rewards[0] == max(rewards))
-        wins += win
-        # r += rewards[0]
-        print(rewards[0])
-
-    print(wins, wins / num_games, r, r / num_games)
-
-def test():
-    players = [A2CAgent(0), RandomAgent(1), RandomAgent(2), RandomAgent(3)]
-    game = Game(players)
-    game.initialize()
-    game.play_game()
-    players[0].train()
 
 def play_game():
     players = [RandomAgent(0), HumanAgent(1), RandomAgent(2), RandomAgent(3)]
@@ -153,12 +138,12 @@ def play_game():
 
 
 if __name__ == "__main__":
-    train_a2c(1000000-20000)
-    # train_a2c(1)
-    # players = [A2CAgent(0, False), RandomAgent(1), A2CAgent(2, False), RandomAgent(3)]
-    # players = [RandomAgent(0), A2CAgent(0, True), RandomAgent(1), A2CAgent(1, True)]
-    # evaluate(1000, players)
-    # players = [RandomAgent(0), DQNAgent(1, False), RandomAgent(2), DQNAgent(3, False)]
-    # players = [DQNAgent(0, False), RandomAgent(1), DQNAgent(2, False), RandomAgent(3)]
-    # players = [RandomAgent(0), RandomAgent(1), RandomAgent(2), RandomAgent(3)]
-    # evaluate(1000, players, False)
+    train_a2c(1000000)
+    # test()
+    agent = A2CAgent()
+    agent.load_model("final")
+    # agent.deterministic = True
+    players = [agent, RandomAgent(1), agent, RandomAgent(2)]
+    # # players = [DQNAgent(0, False), RandomAgent(1), DQNAgent(2, False), RandomAgent(3)]
+    # # players = [RandomAgent(0), agent, RandomAgent(2), agent]
+    evaluate(100, players, 0, False)

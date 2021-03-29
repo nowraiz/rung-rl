@@ -1,170 +1,228 @@
-import random
 import os
-import numpy as np
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import random
+import math
 import torch.optim as optim
-import time
+import torch.nn.functional as F
+from ..dqn.dqn_network import DQNNetwork
+# from .rung_network import RungNetwork
+# from .replay_memory import ReplayMemory, Transition, ActionMemory, StateAction
+from ...obs import Observation
+import sys
 
-import rung_rl.utils as utils
-from .a2c import A2C_ACKTR
-from .model import Policy
-from .storage import RolloutStorage
-from rung_rl.obs import Observation
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
+gpu = torch.device("cuda")
 
-args = {}
-args["use_gae"] = True
-args["cuda"] = False
-args["clip_param"] = 0.1
-args["ppo_epoch"] = 3
-args["num_mini_batch"] = 1
-args["value_loss_coef"] = 0.5
-args["entropy_coef"] = 0.01
-args["gamma"] = 0.995
-args["lr"] = 1e-5
-args["eps"] = 25e-5
-args["max_grad_norm"] = 0.5
-args["gae_lambda"] = 0.95
-args["num_steps"] = 13
-args["num_processes"] = 1
-args["alpha"] = 0.99
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# BATCH_SIZE = 64
+GAMMA = 0.999
+# EPS_START = 0.3
+# EPS_END = 0.05
+# EPS_DECAY = 1000000
+# TARGET_UPDATE = 1000
+# MIN_BUFFER_SIZE = 1000
+# RUNG_BATCH_SIZE = 64
+NUM_ACTIONS = 13
+INPUTS = 1418
+LEARNING_STARTS = 1000
+MODEL_PATH = os.getcwd() + "/models/a2c"
+LR = 5e-5
 
-OBSERVATION_SPACE = 1199
-ACTIONS = 13
-OBSERVATION_SPACE_SHAPE = torch.Size([OBSERVATION_SPACE])
-MODEL_PATH = os.getcwd() + "/models"
-MODEL_NAME = MODEL_PATH + "/vfinal.pt"
-
-
-# actor_critic = None
-# try:
-#     print("Loading the network from file...")
-#     actor_critic = torch.load(MODEL_NAME)
-# except FileNotFoundError:
-#     print("File not found. Creating a new network...")
-#
-# actor_critic.to(device)
-
-
-def save_policy(i, actor_critic, index):
-    torch.save(actor_critic, MODEL_PATH + "/v" + str(i) + ".pt")
-
-
-def update_parameters(i, n, policy):
-    utils.update_linear_schedule(policy.optimizer, i, n, args["lr"])
-    # utils.update_epsilon(policy.optimizer, i, n, args["eps"])
 
 
 class A2CAgent:
-    def __init__(self, id, eval=False):
-        self.actor_critic = Policy(OBSERVATION_SPACE_SHAPE, ACTIONS, base_kwargs={'recurrent': False}).to(device)
+    def __init__(self, train=True):
+        # self.BATCH_SIZE = BATCH_SIZE
+        self.GAMMA = GAMMA
+        # self.EPS_START = EPS_START
+        # self.EPS_END = EPS_END
+        # self.EPS_DECAY = EPS_DECAY
+        # self.TARGET_UPDATE = TARGET_UPDATE
+        # self.RUNG_BATCH_SIZE = RUNG_BATCH_SIZE
+        self.num_actions = NUM_ACTIONS
+        self.steps = 0 # the total steps taken by the agent
+        self.rewards = [] # rewards acheived at each step
+        self.log_probs = [] # log probs of action taken at each step
+        # self.actions = [] # the actions taken at each step
+        # self.states = [] # the states (does not really matter)
+        self.values = [] # the values predicted by the critic
+        self.dones = []
 
-        self.policy = policy = A2C_ACKTR(
-            self.actor_critic,
-            args["value_loss_coef"],
-            args["entropy_coef"],
-            lr=args["lr"],
-            eps=args["eps"],
-            alpha=args["alpha"],
-            max_grad_norm=args["max_grad_norm"],
-            acktr=False)
+        self.actor = DQNNetwork(INPUTS, NUM_ACTIONS).to(device)
+        self.critic = DQNNetwork(INPUTS, 1).to(device) # there is only one output which is the value of the state
+        # self.target_net = DQNNetwork(INPUTS, NUM_ACTIONS).to(device).eval()
+        # self.rung_net = RungNetwork(85, 4).to(device)
+        # self.rung_optimizer = optim.Adam(self.rung_net.parameters(),lr=1e-4)
+        # self.rung_memory = ReplayMemory(100000)
+        # self.average_policy = DQNNetwork(INPUTS, NUM_ACTIONS).to(device)
+        # self.policy_optimizer = optim.RMSprop(self.average_policy.parameters())
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=LR)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=LR)
 
-        self.rollouts = RolloutStorage(args["num_steps"], 1, OBSERVATION_SPACE_SHAPE, ACTIONS,
-                                       self.actor_critic.recurrent_hidden_state_size)
-        self.rollouts.to(device)
-        self.cards_seen = [None for _ in range(52)]
-        self.step = 0
-        self.rewards = 0
-        self.invalid_moves = 0
-        self.eval = eval
-        self.id = id
-        self.card_idx = 0
-        self.last_game_reward = 0
-        self.obs = None
-        self.value = self.action = self.action_log_prob = self.recurrent_hidden_states = None
-        self.mask = self.bad_mask = self.reward_tensor = None
+        # self.action_memory = ActionMemory(1000000)
+        # self.last_actions = [None, None, None, None]
+        # self.last_rewards = [0, 0, 0, 0]
+        # self.last_states = [None, None, None, None]
+        self.total_reward = 0
+        self.train = train
+        self.wins = 0
+        # self.rung_selected = [None, None, None, None]
+        # self.rung_state = [None, None, None, None]
+        self.deterministic = False
+        self.steps = 0
+        self.eval = False
+        # self.last_ga?me_reward = 0
+        # self.cards_seen_index = 0
         self.load_model()
 
-    def get_move(self, cards, hand, stack, rung, num_hand, dominating, last_hand, highest, action_mask, last_dominant):
-        self.obs = self.get_obs(cards, hand, stack, rung, num_hand, dominating, last_hand, highest, last_dominant)
-        if self.step == 0:
-            self.rollouts.obs[0].copy_(self.obs)
-            self.rollouts.to(device)
+    def get_rung(self, state, player):
+        return torch.tensor([random.randint(0,3)]) # return a random rung for now
+        # state = self.get_rung_obs(state)
+        # self.rung_state[player] = state
+        # self.rung_selected[player] = self.select_rung(self.rung_state[player])
+        # return self.rung_selected[player]
+
+    def select_action(self, state, action_mask):
+        probs = self.actor(state)
+        mask = self.create_action_mask_tensor(action_mask)
+        sm = torch.nn.Softmax(1)
+        # print(action_mask)
+        # print(sm(probs))
+        probs = probs + mask
+        dist = torch.distributions.Categorical(probs=sm(probs))
+        action = dist.sample()
+        # return sm(probs).max(1)[1], dist.log_prob(action)
+        return action, dist.log_prob(action)
+
+    def reward(self, r, player, done=False):
+        # self.last_rewards[player] = torch.tensor([[r]], dtype=torch.float).to(device)
+        self.total_reward += r
+        self.rewards.append(r)
+        if done:
+            self.dones.append(0)
         else:
-            self.rollouts.insert(self.obs, self.recurrent_hidden_states, self.action, self.action_log_prob, self.value,
-                                 self.reward_tensor, self.mask, self.bad_mask)
-        with torch.no_grad():
-            self.value, self.action, self.action_log_prob, self.recurrent_hidden_states = self.actor_critic.act(
-                self.rollouts.obs[self.step], self.rollouts.recurrent_hidden_states[self.step],
-                self.rollouts.masks[self.step], action_mask)
-        # add this card to the played card
-        # self.save_card(cards[self.action])
-        return self.action
+            self.dones.append(1)
 
-    def reward(self, r, done=False):
-        self.rewards += r
-        self.mask = torch.FloatTensor([[0.0 if done else 1.0]]).to(device)
-        self.bad_mask = torch.FloatTensor([[1.0]]).to(device)
-        self.reward_tensor = torch.FloatTensor([r]).to(device)
+    def get_value(self, state):
+        out = self.critic(state)
+        return out.view(1,1)
 
-        self.step += 1
+    def get_move(self, state):
+        player = state.player_id
+        action_mask = state.get_action_mask()
+        state = self.get_obs(state)
+        value = self.get_value(state)
+        action, log_prob = self.select_action(state, action_mask)
+        self.log_probs.append(log_prob)
+        # print(value)
+        self.values.append(value)
+        self.steps += 1
+        # self.last_states[player] = state
+        # self.last_actions[player] = self.select_action(state, action_mask, player)
 
-    def get_obs(self, cards, hand, stack, rung, num_hand, dominating, last_hand, highest, last_dominant):
-        obs = Observation(cards, hand, stack, rung, num_hand, dominating, last_hand, highest, last_dominant,
-                          self.id, self.cards_seen)
-        return torch.Tensor(obs.get()).to(device)
+        return action
+    
+    def create_action_mask_tensor(self, mask):
+        return torch.tensor([[0 if m == 1 else float("-inf") for m in mask]], device=device)
 
-    def save_obs(self, hand):
-        for card in hand:
-            if not card:
-                break
-            self.save_card(card)
+    def get_obs(self, state):
+        obs = state.get_obs()
+        return torch.tensor([obs.get()], dtype=torch.float).to(device)
 
-    def save_card(self, card):
-        # print(self.card_idx)
-        self.cards_seen[self.card_idx] = card
-        self.card_idx += 1
-        # idx = (card.suit.value - 1) * 13 + card.face.value - 2
-        # self.cards_seen[idx] = 1
+    def calculate_returns(self):
+        returns = 0
+        for i in range(len(self.rewards)):
+            returns = self.rewards[i] + GAMMA*returns*self.dones[i]
+            self.rewards[i] = returns
 
-    def train(self):
-        if self.eval:  # do not train if in evaluation mode
+    def optimize_model(self):
+        if self.eval:
             return
-        with torch.no_grad():
-            next_value = self.actor_critic.get_value(
-                self.rollouts.obs[-1], self.rollouts.recurrent_hidden_states[-1],
-                self.rollouts.masks[-1]).detach()
-        self.rollouts.compute_returns(next_value, args["use_gae"], args["gamma"],
-                                      args["gae_lambda"], False)
+        self.calculate_returns()
+        loss_actor = self.optimize_actor()
+        loss_critic = self.optimize_critic()
+        # print(loss_critic)
+        print("actor: {:.5f} critic: {:.5f}".format(loss_actor, loss_critic), end=" - ")
 
-        value_loss, action_loss, dist_entropy = self.policy.update(self.rollouts)
-        # print([value_loss, action_loss, dist_entropy], end="\t")
-        self.rollouts.after_update()
+        # clear the trajectory
+        self.rewards = []
+        # self.steps = 0
+        self.log_probs = []
+        self.values = []
+        self.dones = []
 
-    def end(self):
-        self.last_game_reward = self.rewards
-        self.rewards = 0
-        self.card_idx = 0
-        self.cards_seen = [None for _ in range(52)]
-        self.rollouts.insert(self.obs, self.recurrent_hidden_states, self.action, self.action_log_prob, self.value,
-                             self.reward_tensor, self.mask, self.bad_mask)
-        self.step = 0
+    def optimize_actor(self):
+        # print(self.log_probs)
+        # print(self.rewards)
+        advantages = torch.tensor(self.rewards) - torch.cat(self.values, 1)
+        log_probs = torch.cat(self.log_probs, 0)
+        # print(self.log_probs)
+        # print(log_probs)
+        # print(advantages)
+        actor_loss = (-1 * log_probs)*advantages
+        # print(actor_loss)
+        # print()
+        # print(actor_loss)
+        actor_loss_mean = torch.mean(actor_loss)
+        # print(actor_loss_mean)
+        self.actor_optimizer.zero_grad()
+        actor_loss_mean.backward(retain_graph=True)
+        self.actor_optimizer.step()
+        return actor_loss_mean.item()
 
-    def get_rewards(self):
-        return self.last_game_reward
+    def optimize_critic(self):
+        advantages = torch.tensor(self.rewards) - torch.cat(self.values, 1)
+        critic_loss = 0.5 * torch.mean(torch.square(advantages))
 
-    def model_path(self):
-        return "{}/model{}".format(MODEL_PATH, self.id)
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+        return critic_loss.item()
+        # self.optimizer.zero_grad()
+        # loss.backward()
+        # for param in self.policy_net.parameters():
+        #     param.grad.data.clamp_(-1, 1)
+        # self.optimizer.step()
+        # if self.steps_done % 1300 == 0:
+        # print(loss.item())
+        # return loss.item()
 
-    def save_model(self):
-        torch.save(self.actor_critic.state_dict(), self.model_path())
+    def end(self, win, player):
+        self.wins += win
+        self.total_reward = 0
+        # self.memory.push(self.last_state, self.last_action, None, self.last_reward)
+        # self.last_game_reward = self.game_reward
+        # self.game_reward = 0
+        # self.last_state = None
+        # self.last_action = None
+        # self.last_reward = None
+        # self.cards_seen = [None for _ in range(52)]
+        # self.cards_seen_index = 0
+        # do nothing at the end of the game
+        pass
 
-    def load_model(self):
+    def reset(self):
+        wins = self.wins
+        self.wins = 0
+        return wins
+
+    def save_model(self, i="final"):
+        torch.save(self.actor.state_dict(), self.model_path("actor"))
+        torch.save(self.critic.state_dict(), self.model_path("critic"))
+        # torch.save(self.average_policy.state_dict(), self.average_model_path(i))
+
+    def load_model(self, i="final"):
         try:
-            state_dict = torch.load(self.model_path())
-            self.actor_critic.load_state_dict(state_dict)
-            print("Loading the network from file...")
+            state_dict = torch.load(self.model_path("actor"))
+            # self.policy_net.load_state_dict(state_dict)
+            self.actor.load_state_dict(state_dict)
+            state_dict = torch.load(self.model_path("critic"))
+            self.critic.load_state_dict(state_dict)
+            # state_dict = torch.load(self.average_model_path(i))
+            # self.average_policy.load_state_dict(state_dict)
         except FileNotFoundError:
-            print("Creating a new network...")
+            print("File not found. Creating a new network...")
+
+    def model_path(self, model_name, i="final"):
+        return "{}/model_{}_{}".format(MODEL_PATH, model_name, i)

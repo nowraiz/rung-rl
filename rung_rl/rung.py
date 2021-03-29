@@ -3,9 +3,11 @@ from rung_rl.deck import Deck, Card
 from rung_rl.deck import Suit
 import random
 
+from rung_rl.state import State
+
 NUM_PLAYERS = 4  # the number of players is fixed for RUNG i.e. 4
 NUM_TEAMS = 2  # the number of teams is fixed for RUNG i.e. 2
-REWARD_SCALE = 65
+REWARD_SCALE = 50
 
 
 
@@ -24,7 +26,7 @@ class Game():
         self.deck = Deck()  # start with a standard deck of standard playing cards
         self.hand = [None, None, None, None]  # a hand represents the playing hand
         self.hand_player = [None, None, None, None]  # the index of the player who played this card on the hand
-        self.current_player = random.randint(0, 3)  # the index of the player whose turn it is
+        self.current_player = None  # the index of the player whose turn it is
         self.scores = [0 for _ in range(4)]  # the scores for the teams
         self.player_cards = [[None for _ in range(13)] for _ in range(4)]
         self.players = players
@@ -32,7 +34,15 @@ class Game():
         self.dominant = None
         self.last_dominant = None
         self.done = False
+        self.previous_winner = None
         self.last_hand = [None, None, None, None]
+        self.cards_played = [None for _ in range(52)] # the cards played till now
+        self.cards_played_by = [None for _ in range(52)] # which player played the card
+        self.cards_played_idx = 0
+
+    def sort_all_cards(self):
+        for i in range(4):
+            self.player_cards[i] = self.sort_cards(self.player_cards[i])
 
     def sort_cards(self, cards):
         return sorted(cards, key=lambda card: (card.suit.value - 1) * 13 + card.face.value - 2 if card else 0)
@@ -65,7 +75,7 @@ class Game():
                 for j in range(0, 4):
                     self.player_cards[k][j + 5 + it * 4] = self.draw_card_from_deck()
 
-    def initialize(self):
+    def initialize(self, player=None):
         """
         Initialize the players card and sets the rung as directed by the player and populates the
         remaining cards
@@ -73,6 +83,19 @@ class Game():
         assert (self.rung == None)
         # initialize the game and set the rung
         self.populate_initial()
+        # toss for the player that selects rung
+        # if we have a winner already declared. Make that player choose instead
+        toss = player if player is not None else random.randint(0, 3)
+        self.previous_winner = toss
+        suits = [suit for suit in Suit]
+        winner = self.players[toss]
+        self.DEBUG(str(self.player_cards[toss]))
+        move = winner.get_rung(State(self.player_cards[toss]), toss)
+        move = move.item()
+        assert move >= 0 and move <= 3
+        self.rung = suits[move]
+        self.current_player = toss # the player who selects rung starts the game
+        self.DEBUG("Rung: {}, Selected By: {}".format(str(self.rung), toss))
         # player = self.players[self.current_player]
         # move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung.value if self.rung else 0, self.hands, self.action_mask(self.current_player))
         # while not self.valid_move(move, self.current_player):
@@ -80,9 +103,10 @@ class Game():
         # move = player.get_move(self.player_cards[self.current_player], self.hand)
         # assert(self.valid_move(move, self.current_player))
         # card = self.peek_card(move, self.current_player)
-        self.rung = random.choice([suit for suit in Suit])
-        self.DEBUG("Rung : ", self.rung)
+        # self.rung = random.choice([suit for suit in Suit])
+        # self.DEBUG("Rung : ", self.rung)
         self.populate_remaining_cards()
+        self.sort_all_cards()
         assert (self.deck.length() == 0)
 
         self.dump_all_cards()
@@ -101,7 +125,7 @@ class Game():
         """
         assert (not self.done)
         self.DEBUG("Starting hand", self.hands + 1)
-        player_idx = [0, 0, 0, 0]
+        player_idx = [None, None, None, None]
         for i in range(4):
             if self.hand_idx == 0:
                 highest = None
@@ -111,22 +135,42 @@ class Game():
 
             self.DEBUG("Player", self.current_player, " turn")
             player = self.players[self.current_player]
-            move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack,
-                                   self.rung if self.rung else 0, self.hands + 1, self.dominant, self.last_hand,
-                                   highest, self.action_mask(self.current_player), self.last_dominant)
+
+            state = State(self.player_cards[self.current_player], self.hand, self.stack,
+                          self.rung if self.rung else 0, self.hands + 1, self.dominant, self.last_hand,
+                          highest, self.last_dominant, self.current_player, self.cards_played,
+                          self.cards_played_by, self.scores[self.current_player],
+                          self.scores[self.next_player()],
+                          None if self.hand_idx == 0 else self.prev_player(),
+                          None if self.hand_idx == 3 else self.next_player(),
+                          int(self.partner_player() in player_idx),
+                          self.action_mask(self.current_player))
+
+            move = player.get_move(state)
 
             move = move.item()
             # player.reward(-0.001, True)
             # move = player.get_move(self.player_cards[self.current_player], self.hand)
-            self.DEBUG(self.dump_cards(self.player_cards[self.current_player]), str(self.player_cards[self.current_player][move]))
-            assert (self.valid_move(move, self.current_player))
+            self.DEBUG(self.dump_cards(self.player_cards[self.current_player]),
+                       str(self.player_cards[self.current_player][move]))
+            valid = self.valid_move(move, self.current_player)
+            if not valid:
+                print(move, self.current_player, self.player_cards[self.current_player], self.action_mask(self.current_player))
+            assert valid
             self.hand[self.hand_idx] = self.draw_card(move, self.current_player)
             player_idx[self.hand_idx] = self.current_player
-            self.hand_idx += 1
-            self.current_player = (self.current_player + 1) % 4
-            self.DEBUG(self.to_string(self.hand))
+            # add the card to the cards seen
+            self.cards_played[self.cards_played_idx] = self.hand[self.hand_idx]
+            self.cards_played_by[self.cards_played_idx] = self.current_player
+            self.cards_played_idx += 1
 
-        self.broadcast()  # broadcast the hand information to every other player
+            # advance the hand and the player
+            self.hand_idx += 1
+            self.current_player = self.next_player()
+            self.DEBUG(self.to_string(self.hand))
+            # self.DEBUG("\n")
+
+        # self.broadcast()  # broadcast the hand information to every other player
         self.stack += 1  # increase the stack count
         self.hands += 1
         idx = self.highest_card_index()  # get the highest card
@@ -138,30 +182,33 @@ class Game():
             # reward = 0
             self.scores[winner1] += self.stack
             self.scores[winner2] += self.stack
+            self.DEBUG("Total Rounds for {}, {}: {}".format(winner1, winner2, self.scores[winner1]))
             if max(self.scores) > 6:
                 # game is done
                 self.done = True
-                reward += 52 / REWARD_SCALE
+                reward += 43 / REWARD_SCALE
                 # reward = 1
                 self.DEBUG("WINNER: ", winner1, winner2)
             for i, player in enumerate(self.players):
                 if i == winner1 or i == winner2:
-                    player.reward(reward, self.done)
+                    player.reward(reward, i, self.done)
                 else:
-                    player.reward(-reward, self.done)
+                    player.reward(-reward, i, self.done)
             self.stack = 0
 
         else:
-            for player in self.players:
-                player.reward(0)
+            for i, player in enumerate(self.players):
+                player.reward(0, i)
         self.last_dominant = self.dominant
         self.dominant = dominant
         # clear the hand and set the new next player
         self.last_hand = self.hand
+        
+
         self.hand = [None for _ in range(4)]
         self.hand_idx = 0
         self.current_player = self.dominant
-        self.DEBUG("Ending hand", self.hands)
+        self.DEBUG("Ending hand", self.hands, "\n")
 
     def play_game(self):
         for i in range(13):
@@ -169,16 +216,19 @@ class Game():
                 self.end_game()
                 return
             self.play_hand()
-        self.end_game()
+        return self.end_game()
 
     def end_game(self):
         """
         Signal all players that it is an end of the game
         """
         assert (self.done)
-        for player in self.players:
-            player.end()
+        for i, player in enumerate(self.players):
+            player.end(self.scores[i] > 6, i)
         self.DEBUG("Game ended")
+        if self.previous_winner and self.scores[self.previous_winner] > 6:
+            return self.previous_winner
+        return (self.previous_winner + 1) % NUM_PLAYERS
 
     def draw_card(self, move, player):
         """
@@ -262,9 +312,40 @@ class Game():
         else:
             return [1 if card and card.suit == self.hand[0].suit else 0 for card in self.player_cards[player]]
 
+    def next_player(self, player=None):
+        """
+        Returns the idx of the next player in the circle of players.
+        If no player is given, we assume its the current player
+        """
+        if player is None:
+            player = self.current_player
+        return (player + 1) % 4
+    
+    def prev_player(self, player=None):
+        """
+        Returns the idx of the previous player int he circle of players.
+        If no player is given, we assume its the current player
+        """
+        if player is None:
+            player = self.current_player
+        return (player - 1) % 4
+
+    def partner_player(self, player=None):
+        """
+        Returns the idx of the partner in the circle of players,
+        If no player is given,it assumes we are talking about the 
+        current player
+        """
+        if player is None:
+            player = self.current_player
+        return (player + 2) % 4
+
     def dump_all_cards(self):
         for player in range(len(self.players)):
             self.DEBUG(self.to_string(self.sort_cards(self.player_cards[player])))
 
     def dump_cards(self, cards):
         self.DEBUG(self.to_string(self.sort_cards(cards)))
+
+    def get_state(self):
+        return

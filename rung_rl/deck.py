@@ -27,6 +27,13 @@ class Face(IntEnum):
     KING = 13
     ACE = 14
 
+PRETTY_SUITS = {
+    "SPADES": chr(9824),   # spades
+    "HEARTS": chr(9829),   # hearts
+    "DIAMONDS": chr(9830),   # diamonds
+    "CLUBS": chr(9827)    # clubs
+}
+
 class Card():
     """
     A card represents a single card from a standard deck of card.
@@ -42,12 +49,13 @@ class Card():
             face = str(self.face.value)
         else:
             face = str(self.face.name[0])
-        return face + str(self.suit.name[0])
+        return "{} {}".format(PRETTY_SUITS[self.suit.name], face)
 
     def __repr__(self):
         return str(self)
     def to_int(self):
         return (self.face.value, self.suit.value)
+  
 
 class Deck():
     """
