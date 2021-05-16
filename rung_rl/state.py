@@ -1,7 +1,7 @@
 from rung_rl.obs import Observation
 
 """
-Represents a single instance of state that is observable by an agent in a single timestep. This state is passed on to
+Represents a single instance of state that is (partially) observable by an agent in a single timestep. This state is passed on to
 the agent to get the move.
 
     cards: the cards in the player hand
@@ -21,14 +21,18 @@ the agent to get the move.
 
 class State:
 
-    def __init__(self, cards, hand=None, stack=None, rung=None, hand_idx=None, dominant=None, last_hand=None, highest=None,
-                 last_dominant=None, player_id=None, cards_played=None, cards_played_by=None,
-                 score=None, enemy_score=None, last_turn=None, next_turn=None, has_partner_played=None, action_mask=None):
-        self.cards = cards
+    def __init__(self, cards, player_id=None, hand=None, hand_played_by=None, stack=None, rung=None,
+                 hand_idx=None, hand_place=None, dominant=None, last_hand=None, highest=None,
+                 last_dominant=None, cards_played=None, cards_played_by=None,
+                 score=None, enemy_score=None, highest_card=None, higher_cards=None, winning_round=None,
+                 last_turn=None, next_turn=None, has_partner_played=None, action_mask=None):
+        self.cards = cards # these cards are for every player (for oracle)
         self.hand = hand
+        self.hand_played_by = hand_played_by
         self.stack = stack
         self.rung = rung
         self.hand_idx = hand_idx
+        self.hand_place = hand_place
         self.dominant = dominant
         self.last_hand = last_hand
         self.highest = highest
@@ -38,6 +42,9 @@ class State:
         self.next_turn = next_turn
         self.score = score
         self.enemy_score = enemy_score
+        self.highest_card = highest_card
+        self.higher_cards = higher_cards
+        self.winning_round = winning_round
         self.cards_played = cards_played
         self.cards_played_by = cards_played_by
         self.has_partner_played = has_partner_played

@@ -29,10 +29,10 @@ class HumanAgent(Agent):
         print(suits)
         print("Your cards a.t.m: ", list(zip(cards, list(range(13)))))
         move = int(input("Select Rung: "))
-        while move < 0 or move > 3:
+        while move < 1 or move > 4:
             print("Invalid move")
             move = int(input("Select Rung: "))
-        return torch.tensor([[move]], dtype=torch.long)
+        return torch.tensor([[move-1]], dtype=torch.long)
 
     def end(self, win, i):
         if win:

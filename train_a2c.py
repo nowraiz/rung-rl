@@ -1,13 +1,16 @@
 from rung_rl.agents.a2c.a2c_agent import A2CAgent
+from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.rung import Game
 import rung_rl.plotter as plt
 import torch
 import torch.multiprocessing as mp
-
+import statistics
 import numpy as np
 from multiprocessing import Process
+
+torch.set_num_threads(12)
 
 CONCURRENT_GAMES = 128
 
@@ -66,21 +69,53 @@ def run_game(players):
 
 
 def train_a2c(num_games, debug=False):
-    players = [A2CAgent(), A2CAgent(), A2CAgent(), A2CAgent()]
+    agent = A2CAgent()
+    dqn_agent = DQNAgent(True)
+    dqn_agent.eval = True
+    players = [agent, agent, agent, agent]
     win_rate_radiant = []
     win_rate_dire = []
     games = []
+    rewards = []
+    wins = 0
+    win_rate = []
+    avg_rewards = []
     for i in range(num_games):
         game = Game(players, False, False)
         game.initialize()
         game.play_game()
 
         if i % 6 == 0:
-            for player in players:
-                player.optimize_model()
+            agent.optimize_model()
             print()
+        # agent.reset(0)
+        # temp_players_radiant = [agent, RandomAgent(1), agent, RandomAgent(3)]
+        # test_game = Game(temp_players_radiant, False, False)
+        # test_game.initialize()
+        # test_game.play_game()
+        # win, reward = agent.reset(0)
+        # wins += win
+        # # rewards.append(reward)
+        # # games.append(i)
+        # rewards.append(reward)
+        # # avg_reward = sum(avg_reward) / 100
+        # # avg_rewards.append(avg_reward)
+
+        # agent.clear_trajectory()
+
+
+
         if i % 100 == 0:
             print("Total Games: {}".format(i))
+        # if i % 250 == 0 and i != 0:
+        #     games.append(i)
+        #     avg_reward = statistics.mean(rewards)
+        #     avg_rewards.append(avg_reward)
+        #     rewards = []
+        #     win_rate.append(wins / 250)
+        #     wins = 0
+        #     plt.plot_reward(games, avg_rewards, win_rate)
+        #     plt.savefig()
 
         if i % 5000 == 0:
             players[0].save_model("final")
@@ -88,19 +123,20 @@ def train_a2c(num_games, debug=False):
 
         if i % 5000 == 0 and i != 0:
             temp_players_radiant = [players[0], RandomAgent(1), players[2], RandomAgent(3)]
-            temp_players_dire = [RandomAgent(0), players[1], RandomAgent(2), players[3]]
-            # for player in players:
-            #     player.eval = True
+            temp_players_dire = [dqn_agent, players[1], dqn_agent, players[3]]
+        #     # for player in players:
+        #     #     player.eval = True
             win_rate_r = evaluate(100, temp_players_radiant, 0)
             win_rate_d = evaluate(100, temp_players_dire, 1)
             games.append(i)
             win_rate_radiant.append(win_rate_r)
             win_rate_dire.append(win_rate_d)
 
-            plt.plot(games, win_rate_radiant, win_rate_dire)
+            plt.plot(games, win_rate_dire, win_rate_radiant)
             plt.savefig()
-            # for player in players:
-            #     player.eval = False
+            agent.clear_trajectory()
+        #     # for player in players:
+        #     #     player.eval = False
 
     plt.savefig()
     players[0].save_model("final")
@@ -119,13 +155,13 @@ def test():
 
 def evaluate(num_games, players, idx=0, debug=False):
     print("Starting evaluation...")
-    players[idx].reset()
+    players[idx].reset(idx)
     for i in range(num_games):
         game = Game(players, debug, debug)
         game.initialize()
         game.play_game()
 
-    wins = players[idx].reset()
+    wins, _ = players[idx].reset(idx)
     print(wins, wins / num_games)
     return wins / num_games * 100
 
@@ -138,12 +174,15 @@ def play_game():
 
 
 if __name__ == "__main__":
-    train_a2c(1000000)
+    # train_a2c(10000000)
     # test()
     agent = A2CAgent()
     agent.load_model("final")
+    agent.eval =True
     # agent.deterministic = True
     players = [agent, RandomAgent(1), agent, RandomAgent(2)]
-    # # players = [DQNAgent(0, False), RandomAgent(1), DQNAgent(2, False), RandomAgent(3)]
+    evaluate(10000, players, 0, False)
+    players = [agent, dqn_agent, agent, dqn_agent]
+    print("Vs DQN")
+    evaluate(10000, players, 0, False)
     # # players = [RandomAgent(0), agent, RandomAgent(2), agent]
-    evaluate(100, players, 0, False)

@@ -1,13 +1,13 @@
 from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.deck import Deck, Card
-from rung_rl.deck import Suit
+from rung_rl.deck import Suit, Face
 import random
 
 from rung_rl.state import State
 
 NUM_PLAYERS = 4  # the number of players is fixed for RUNG i.e. 4
 NUM_TEAMS = 2  # the number of teams is fixed for RUNG i.e. 2
-REWARD_SCALE = 50
+REWARD_SCALE = 56
 
 
 
@@ -90,7 +90,7 @@ class Game():
         suits = [suit for suit in Suit]
         winner = self.players[toss]
         self.DEBUG(str(self.player_cards[toss]))
-        move = winner.get_rung(State(self.player_cards[toss]), toss)
+        move = winner.get_rung(State(self.player_cards, toss), toss)
         move = move.item()
         assert move >= 0 and move <= 3
         self.rung = suits[move]
@@ -129,18 +129,23 @@ class Game():
         for i in range(4):
             if self.hand_idx == 0:
                 highest = None
+                highest_card = None
             else:
                 highest_idx = self.highest_card_index()
                 highest = player_idx[highest_idx]
+                highest_card = self.hand[highest_idx]
 
             self.DEBUG("Player", self.current_player, " turn")
             player = self.players[self.current_player]
 
-            state = State(self.player_cards[self.current_player], self.hand, self.stack,
-                          self.rung if self.rung else 0, self.hands + 1, self.dominant, self.last_hand,
-                          highest, self.last_dominant, self.current_player, self.cards_played,
+            state = State(self.player_cards, self.current_player, self.hand, player_idx, self.stack,
+                          self.rung if self.rung else None, self.hands + 1, i,
+                          self.dominant, self.last_hand,
+                          highest, self.last_dominant,  self.cards_played,
                           self.cards_played_by, self.scores[self.current_player],
                           self.scores[self.next_player()],
+                          highest_card, self.higher_cards(highest_card),
+                          self.last_dominant == highest, # if the current top card is winning round
                           None if self.hand_idx == 0 else self.prev_player(),
                           None if self.hand_idx == 3 else self.next_player(),
                           int(self.partner_player() in player_idx),
@@ -151,8 +156,9 @@ class Game():
             move = move.item()
             # player.reward(-0.001, True)
             # move = player.get_move(self.player_cards[self.current_player], self.hand)
-            self.DEBUG(self.dump_cards(self.player_cards[self.current_player]),
-                       str(self.player_cards[self.current_player][move]))
+            self.dump_cards(self.player_cards[self.current_player])
+            self.DEBUG(str(self.player_cards[self.current_player][move]))
+
             valid = self.valid_move(move, self.current_player)
             if not valid:
                 print(move, self.current_player, self.player_cards[self.current_player], self.action_mask(self.current_player))
@@ -173,9 +179,11 @@ class Game():
         # self.broadcast()  # broadcast the hand information to every other player
         self.stack += 1  # increase the stack count
         self.hands += 1
-        idx = self.highest_card_index()  # get the highest card
+        idx = self.highest_card_index()  # get the highest card index
+        highest_card = self.hand[idx]
         dominant = player_idx[idx]  # get the player who played the highest card
-        if self.hands == 13 or (dominant == self.dominant and self.hands > 2):
+        # ADDED ACE RULE TO SEE WHAT CHANGES
+        if self.hands == 13 or ((dominant == self.dominant and self.hands > 2)):
             winner1 = dominant
             winner2 = (dominant + 2) % 4
             reward = self.stack / REWARD_SCALE
@@ -187,6 +195,7 @@ class Game():
                 # game is done
                 self.done = True
                 reward += 43 / REWARD_SCALE
+                # reward = 1 # binary reward
                 # reward = 1
                 self.DEBUG("WINNER: ", winner1, winner2)
             for i, player in enumerate(self.players):
@@ -194,6 +203,10 @@ class Game():
                     player.reward(reward, i, self.done)
                 else:
                     player.reward(-reward, i, self.done)
+                    # if self.done:
+                        # player.reward(-reward, i, self.done)
+                    # else:
+                        # player.reward(0, i, self.done)
             self.stack = 0
 
         else:
@@ -208,27 +221,30 @@ class Game():
         self.hand = [None for _ in range(4)]
         self.hand_idx = 0
         self.current_player = self.dominant
+        if self.stack == 0:
+            self.last_dominant = None
         self.DEBUG("Ending hand", self.hands, "\n")
 
     def play_game(self):
         for i in range(13):
             if self.game_over():
-                self.end_game()
-                return
+                return self.end_game()
             self.play_hand()
         return self.end_game()
 
     def end_game(self):
         """
         Signal all players that it is an end of the game
+        and return the winners of the game
         """
         assert (self.done)
         for i, player in enumerate(self.players):
             player.end(self.scores[i] > 6, i)
         self.DEBUG("Game ended")
-        if self.previous_winner and self.scores[self.previous_winner] > 6:
-            return self.previous_winner
-        return (self.previous_winner + 1) % NUM_PLAYERS
+        if self.previous_winner is not None and self.scores[self.previous_winner] > 6:
+            return self.previous_winner, self.partner_player(self.previous_winner)
+        winner = (self.previous_winner + 1) % NUM_PLAYERS
+        return winner, self.partner_player(winner)
 
     def draw_card(self, move, player):
         """
@@ -303,6 +319,22 @@ class Game():
         return (card1.suit == card2.suit and card2.face.value > card1.face.value) or \
                (card1.suit != self.rung and card2.suit == self.rung)
 
+    def higher_cards(self, highest_card):
+        """
+        Returns which of the current player card can be higher than the
+        highest card *if* played
+        """
+        action_mask = self.action_mask(self.current_player) # allowed moves
+        if highest_card is None:
+            # every playable card card you play will be a higher card
+            return action_mask
+        
+        higher_cards = []
+        for i, card in enumerate(self.player_cards[self.current_player]):
+            # check which of the cards are higher than the current highest card
+            higher_cards.append(1 if self.higher_card(highest_card, card) and action_mask[i] else 0)
+        return higher_cards
+
     def action_mask(self, player):
         """
         Returns the mask for the available actions for a player
@@ -342,10 +374,10 @@ class Game():
 
     def dump_all_cards(self):
         for player in range(len(self.players)):
-            self.DEBUG(self.to_string(self.sort_cards(self.player_cards[player])))
+            self.DEBUG(self.to_string(self.player_cards[player]))
 
     def dump_cards(self, cards):
-        self.DEBUG(self.to_string(self.sort_cards(cards)))
+        self.DEBUG(self.to_string(cards))
 
     def get_state(self):
         return

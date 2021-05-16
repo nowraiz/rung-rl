@@ -10,29 +10,30 @@ from .rung_network import RungNetwork
 from .replay_memory import ReplayMemory, Transition, ActionMemory, StateAction
 from ...obs import Observation
 import sys
+import numpy as np
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
-gpu = torch.device("cuda")
+# gpu = torch.device("cuda")
 
 BATCH_SIZE = 64
 GAMMA = 0.999
-EPS_START = 0.3
-EPS_END = 0.05
-EPS_DECAY = 1000000
+EPS_START = 1
+EPS_END = 0.1
+EPS_DECAY = 10000000
 TARGET_UPDATE = 1000
 MIN_BUFFER_SIZE = 1000
 RUNG_BATCH_SIZE = 64
 NUM_ACTIONS = 13
-INPUTS = 1418
+INPUTS = 1482 # changed from 1418
 LEARNING_STARTS = 1000
-MODEL_PATH = os.getcwd() + "/models/"
+MODEL_PATH = os.getcwd() + "/models/dqn/"
 LR = 5e-5
 
 
 
 class DQNAgent:
-    def __init__(self, train=True):
+    def __init__(self, train=False):
         self.BATCH_SIZE = BATCH_SIZE
         self.GAMMA = GAMMA
         self.EPS_START = EPS_START
@@ -51,13 +52,14 @@ class DQNAgent:
         # self.policy_optimizer = optim.RMSprop(self.average_policy.parameters())
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=LR)
         self.memory = ReplayMemory(100000)
+        self.eps_schedule = np.linspace(EPS_START, EPS_END, EPS_DECAY)
         # self.action_memory = ActionMemory(1000000)
         self.last_actions = [None, None, None, None]
         self.last_rewards = [0, 0, 0, 0]
         self.last_states = [None, None, None, None]
-        self.total_reward = 0
+        self.total_reward = [0, 0, 0, 0]
         self.train = train
-        self.wins = 0
+        self.wins = [0, 0, 0, 0]
         self.rung_selected = [None, None, None, None]
         self.rung_state = [None, None, None, None]
         self.deterministic = False
@@ -86,7 +88,10 @@ class DQNAgent:
         sample = random.random()
         # eps_threshold = EPS_END + (EPS_START - EPS_END) * \
                         # math.exp(-1. * self.steps_done[player] / EPS_DECAY)
-        eps_threshold = ((EPS_END) + (EPS_START - EPS_END)) / (self.steps_done[player]+ 1)
+        eps_threshold = EPS_END
+        if self.steps_done[player] < EPS_DECAY:
+            eps_threshold = self.eps_schedule[self.steps_done[player]]
+        # eps_threshold = ((EPS_END) + (EPS_START - EPS_END)) / (self.steps_done[player] / EPS_DECAY)
         self.steps_done[player] += 1
         if sample > eps_threshold or self.eval:
             with torch.no_grad():
@@ -110,8 +115,8 @@ class DQNAgent:
 
     def reward(self, r, player, done=False):
         self.last_rewards[player] = torch.tensor([[r]], dtype=torch.float).to(device)
-        self.total_reward += r
-        if done:
+        self.total_reward[player] += r
+        if done and self.train:
             self.memory.push(self.last_states[player], self.last_actions[player], None, self.last_rewards[player], None)
             self.last_states[player] = None
 
@@ -119,7 +124,7 @@ class DQNAgent:
         player = state.player_id
         action_mask = state.get_action_mask()
         state = self.get_obs(state)
-        if self.last_states[player] is not None and not self.eval:
+        if self.last_states[player] is not None and self.train:
             self.memory.push(self.last_states[player], self.last_actions[player], state,
                              self.last_rewards[player], self.create_action_mask_tensor(action_mask))
         self.last_states[player] = state
@@ -139,7 +144,7 @@ class DQNAgent:
         return torch.tensor([obs.get()], dtype=torch.float).to(device)
 
     def optimize_rung_network(self):
-        if self.eval or len(self.rung_memory) < self.RUNG_BATCH_SIZE:
+        if not self.train or len(self.rung_memory) < self.RUNG_BATCH_SIZE:
             return 0
 
         sampled = self.rung_memory.sample(self.RUNG_BATCH_SIZE)
@@ -156,6 +161,7 @@ class DQNAgent:
         self.rung_optimizer.zero_grad()
         loss.backward()
         self.rung_optimizer.step()
+        print("rung_loss: {}".format(loss.item()), end="")
         return loss.item()
 
     def optimize_average_policy(self):
@@ -180,7 +186,7 @@ class DQNAgent:
 
 
     def optimize_model(self):
-        if self.eval:
+        if not self.train:
             return
         # print("Optimizing Model...")
         loss_value = self.optimize_value_model()
@@ -253,9 +259,9 @@ class DQNAgent:
         if not self.eval and self.rung_state[player] is not None:
             self.rung_memory.push(self.rung_state[player], self.rung_selected[player], None, 1 if win else -1, None)
         self.rung_selected[player], self.rung_state[player] = None, None
-        self.wins += win
+        self.wins[player] += win
         # print(self.total_reward)
-        self.total_reward = 0
+        # self.total_reward = [0, 0, 
         # self.memory.push(self.last_state, self.last_action, None, self.last_reward)
         # self.last_game_reward = self.game_reward
         # self.game_reward = 0
@@ -267,10 +273,12 @@ class DQNAgent:
         # do nothing at the end of the game
         pass
 
-    def reset(self):
-        wins = self.wins
-        self.wins = 0
-        return wins
+    def reset(self, player):
+        wins = self.wins[player]
+        rewards = self.total_reward[player]
+        self.wins[player] = 0
+        self.total_reward[player] = 0
+        return wins, rewards
 
     def save_model(self, i):
         torch.save(self.policy_net.state_dict(), self.model_path(i))
