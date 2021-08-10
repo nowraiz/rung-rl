@@ -1,10 +1,8 @@
 import os
-from pickle import TRUE
 from rung_rl.agents.ppo.ppo_algo import PPO
 from typing import List
 import torch
 import random
-import math
 import torch.optim as optim
 import torch.nn.functional as F
 from .ppo_network import PPONetwork
@@ -32,7 +30,7 @@ NUM_ACTIONS = 13
 INPUTS = 1482
 LEARNING_STARTS = 1000
 MODEL_PATH = os.getcwd() + "/models/ppo"
-LR = 7e-4
+LR = 5e-5
 
 class PPOAgent:
     """
@@ -92,6 +90,29 @@ class PPOAgent:
         self.reward_batch = []
         self.batch_size = 0
         self.players = [] # TODO: Make sure no one can access the existing players
+
+    def clear_players(self):
+        """
+        Clears all the players from the queue
+        """
+        self.players = []
+
+    def load_params(self, params):
+        """
+        Loads the given params into the actor_critic model directly. Used in parallel environments
+        to create arbitrary number of agents with the same parameters
+        """
+        self.actor_critic.load_state_dict(params)
+
+
+    def optimize_model_directly(self, state_batch, action_batch, log_probs_batch, reward_batch, batch_size):
+        action, value, entropy = self.ppo.update_ppo(state_batch, 
+                                                        action_batch, 
+                                                        log_probs_batch,
+                                                        reward_batch,
+                                                        batch_size)
+
+        print("Action: {}, Value: {}, Entropy: {}".format(action, value, entropy))
 
     def optimize_model(self):
         if not self.train or self.batch_size < 1:
