@@ -4,7 +4,7 @@ import torch
 
 
 class RandomAgent(Agent):
-    def __init__(self, id):
+    def __init__(self):
         self.rewards = 0
         self.last_game_rewards = 0
         self.steps = 0 
@@ -16,7 +16,7 @@ class RandomAgent(Agent):
         self.steps += 1
         return torch.tensor([[random.choice(choice)]], dtype=torch.long)
 
-    def get_rung(self, state, *args):
+    def get_rung(self, *args):
         return torch.tensor([[random.randint(0,3)]], dtype=torch.long)
 
     def reward(self, val, *args):

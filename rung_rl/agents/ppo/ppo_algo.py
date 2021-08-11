@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,22 +7,24 @@ from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 class PPO():
     def __init__(self,
-                 actor_critic,
-                 optimizer,
+                 actor,
+                 critic,
+                 actor_optimizer,
+                 critic_optimizer,
                  clip_param=0.2,
-                 ppo_epoch=4,
-                 num_mini_batch=64,
-                 value_loss_coef=1,
+                 ppo_epoch=10,
+                 num_mini_batch=128,
+                 value_loss_coef=0.5,
                  entropy_coef=0.01,
                  max_grad_norm=0.5,
                  eps=None,
-                 use_gae=False,
+                 use_gae=True,
                  use_clipped_value_loss=False):
 
-            
-
-        self.actor_critic = actor_critic
-        self.optimizer = optimizer
+        self.actor = actor
+        self.critic = critic
+        self.actor_optimizer = actor_optimizer
+        self.critic_optimizer = critic_optimizer
         self.clip_param = clip_param
         self.ppo_epoch = ppo_epoch
         self.num_mini_batch = num_mini_batch
@@ -44,11 +45,11 @@ class PPO():
         Usually called with a batch of states and actions
         """
 
-        raw_probs, values = self.actor_critic(states)
+        raw_probs = self.actor(states)
+        values = self.critic(states)
         dist = torch.distributions.Categorical(logits=raw_probs)
         log_probs = dist.log_prob(actions)
         return log_probs, values, dist.entropy().mean()
-    
 
     def sample(self, states, actions, log_probs, returns, batch_size):
         """
@@ -64,7 +65,6 @@ class PPO():
             # print(indices)
             yield states[indices], actions[indices], log_probs[indices], returns[indices]
 
-
     def update_ppo(self, states_batch, actions_batch, log_probs_batch, returns_batch, batch_size):
         # the total observations that were created with the environment running
         print("Batch size: {}".format(batch_size))
@@ -76,7 +76,7 @@ class PPO():
 
             # create small batches of transitions
             for sample in self.sample(states_batch, actions_batch, log_probs_batch,
-                                    returns_batch, batch_size):
+                                      returns_batch, batch_size):
                 states, actions, log_probs, returns = sample
 
                 # Evaluating old actions and states under the new policy to find
@@ -84,7 +84,7 @@ class PPO():
                 new_log_probs, values, entropy = self.evaluate(states, actions)
                 values = torch.squeeze(values)
                 returns = torch.squeeze(returns)
-                
+
                 ratios = torch.exp(new_log_probs - log_probs.detach())
 
                 if self.use_gae:
@@ -93,30 +93,34 @@ class PPO():
                     advantages = returns - values.detach()
 
                 surr1 = ratios * advantages
-                surr2 = torch.clamp(ratios, 1.0-self.clip_param, 1.0+self.clip_param) * advantages
-                mse = torch.nn.MSELoss()
+                surr2 = torch.clamp(ratios, 1.0 - self.clip_param, 1.0 + self.clip_param) * advantages
                 actor_loss = -torch.min(surr1, surr2).mean()
-                value_loss = self.value_loss_coef*mse(values, returns)
-                entropy_loss = self.entropy_coef*entropy
-                loss = actor_loss + value_loss - entropy_loss
-                
-                self.optimizer.zero_grad()
+
+                entropy_loss = self.entropy_coef * entropy
+                loss = actor_loss - entropy_loss
+                self.actor_optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
-                self.optimizer.step()
+                nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+                self.actor_optimizer.step()
+
+                # optimize critic
+                mse = torch.nn.MSELoss()
+                value_loss = self.value_loss_coef * mse(values, returns)
+                self.critic_optimizer.zero_grad()
+                value_loss.backward()
+                nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+                self.critic_optimizer.step()
 
                 action_loss_total += actor_loss.item()
                 value_loss_total += value_loss.item()
                 entropy_total += entropy_loss.item()
-        
+
         num_updates = self.ppo_epoch * self.num_mini_batch
         action_loss_total /= num_updates
         value_loss_total /= num_updates
         entropy_total /= num_updates
 
         return action_loss_total, value_loss_total, entropy_total
-
-
 
     # def update(self, rollouts):
     #     advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]

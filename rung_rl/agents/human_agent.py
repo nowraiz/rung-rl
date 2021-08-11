@@ -11,7 +11,7 @@ class HumanAgent(Agent):
 
     def get_move(self, state):
         action_mask = state.get_action_mask()
-        cards = state.cards
+        cards = state.cards[state.player_id]
         print("Your cards: ", list(zip(cards, list(range(13)))))
         move = int(input("Move: "))
         while action_mask[move] == 0:

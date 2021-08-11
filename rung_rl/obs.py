@@ -1,3 +1,5 @@
+import enum
+from torch.nn.functional import embedding
 from rung_rl.deck import Card, Suit
 from rung_rl.utils import flatten
 
@@ -25,7 +27,8 @@ class Observation:
         self.num_hand: int = state.hand_idx  # number of the current hand
         self.hand_idx: int = state.hand_place # the index of the player in the current hand
         self.dominating: int = state.dominant  # the player id of the person dominating
-        self.last_hand = state.last_hand
+        self.last_hand = state.last_hand # the last hand in order
+        self.last_hand_played_by = state.last_hand_played_by # the players of the last hand in order
         self.cards_seen: [int] = state.cards_played
         self.cards_played_by = state.cards_played_by
         self.highest = state.highest  # the player who has the highest card right now on the table
@@ -44,56 +47,134 @@ class Observation:
         self.rung_vector = None
         # self.build_vector()
 
-    def get(self):
+    def get(self, version=1):
         """
         Builds and returns the observation in a vector
         """
         assert self.hand != None # just to make sure we are not using state that is meant for building run state
-        self.build_vector()
+        if version == 1:
+            self.build_vector_v1()
+        elif version == 2:
+            self.build_vector_v2()
         return self.obs_vector
 
-    def get_rung(self):
+    def get_rung(self, version=1):
         """
         Build and returns the initial observation for the selection of rung in a vector
         """
-        self.build_rung_vector()
+        if version == 1:
+            self.build_rung_vector_v1()
+        elif version == 2:
+            self.build_rung_vector_v2()
         return self.rung_vector
 
-    def build_rung_vector(self):
+    def build_rung_vector_v1(self):
         """
         Builds the rung observation vector from the initial data points
         """
         self.rung_vector = \
             flatten([self.embed_card(card) for card in self.cards[self.id] if card])
     
-    def build_vector(self):
+    def build_rung_vector_v2(self):
+        """
+        Build the rung observation vector from the initial data points
+        with the rest of the state observation as 0 so that it can be
+        given to the agent to decide the rung
+        """
+
+        self.rung_vector = \
+            flatten([self.embed_card(card) for card in self.cards[self.id]]) + \
+            [0 for _ in range(237)]
+        pass
+        
+    def build_vector_v1(self):
         """ 
         Builds the observation vector from the data points given
         doing rescaling as needed
         """
-        self.obs_vector = \
-            flatten([self.embed_card(card) for card in self.cards[self.id]]) + \
-            self.embed_hand_cards() + \
-            self.embed_cards_seen() + \
-            self.embed_card(self.highest_card) + self.embed_player(self.highest) + \
-            self.embed_suit(self.rung) + \
-            self.embed_player(self.id) + \
-            self.embed_player(self.dominating) + \
-            self.embed_player(self.last_dominant) + \
-            self.embed_player(self.highest) + \
-            self.higher_cards + \
-            self.action_mask + \
-            [1 if self.winning_round else 0] + \
-            self.embed_player(self.partner) + \
-            self.embed_player(self.last_turn) + \
-            self.embed_player(self.next_turn) + \
-            [self.score, self.enemy_score, self.has_partner_played, self.stack, self.num_hand]
-
+        # self.obs_vector = \
+        #     flatten([self.embed_card(card) for card in self.cards[self.id]]) + \
+        #     self.embed_hand_cards() + \
+        #     self.embed_cards_seen() + \
+        #     self.embed_card(self.highest_card) + self.embed_player(self.highest) + \
+        #     self.embed_suit(self.rung) + \
+        #     self.embed_player(self.id) + \
+        #     self.embed_player(self.dominating) + \
+        #     self.embed_player(self.last_dominant) + \
+        #     self.embed_player(self.highest) + \
+        #     self.higher_cards + \
+        #     self.action_mask + \
+        #     [1 if self.winning_round else 0] + \
+        #     self.embed_player(self.partner) + \
+        #     self.embed_player(self.last_turn) + \
+        #     self.embed_player(self.next_turn) + \
+        #     [self.score, self.enemy_score, self.has_partner_played, self.stack, self.num_hand]
+        #
+        self.obs_vector = [0 for _ in range(1486)]
+        i = 0
+        self.obs_vector[i:i+221] = flatten([self.embed_card(card) for card in self.cards[self.id]])
+        i = i + 221
+        self.obs_vector[i:i+84] = self.embed_hand_cards()
+        i += 84
+        self.obs_vector[i:i+1092] = self.embed_cards_seen()
+        i += 1092
+        self.obs_vector[i:i+17] = self.embed_card(self.highest_card)
+        i += 17
+        self.obs_vector[i:i+4] = self.embed_player(self.highest)
+        i += 4
+        self.obs_vector[i:i+4] = self.embed_suit(self.rung)
+        i += 4
+        self.obs_vector[i:i+4] = self.embed_player(self.id)
+        i += 4
+        self.obs_vector[i:i+4] = self.embed_player(self.dominating)
+        i += 4
+        self.obs_vector[i:i+4] = self.embed_player(self.last_dominant)
+        i += 4
+        self.obs_vector[i:i+4] = self.embed_player(self.highest)
+        i += 4
+        self.obs_vector[i:i+13] = self.higher_cards
+        i += 13
+        self.obs_vector[i:i+17] = self.action_mask
+        i += 17
+        self.obs_vector[i:i+1] = [1 if self.winning_round else 0]
+        i += 1
+        self.obs_vector[i:i+4] = self.embed_player(self.partner)
+        i += 4
+        self.obs_vector[i:i+4] = self.embed_player(self.last_turn)
+        i += 4
+        self.obs_vector[i:i+4] = self.embed_player(self.next_turn)
+        i += 4
+        self.obs_vector[i:i+5] = [self.score/13, self.enemy_score/13, self.has_partner_played, self.stack/13,
+                               self.num_hand/13]
+        i += 5
+        assert i == 1486
         # increase length by 16 for hand
         # increase by 17 + 4 for the highest card
         # increase by 13 for higher cards
         # increase by 1 for winning_round
         # increase by 13 for action_mask : NOT REQUIRED
+
+    def build_vector_v2(self):
+        """
+        Build the v2 observation vector which should ideally be used by the recurrent
+        network since it does not contain the history of the cards played in the game
+        """
+        self.obs_vector = \
+            flatten([self.embed_card(card) for card in self.cards[self.id]]) + \
+            self.embed_hand_cards() + \
+            self.embed_last_hand_cards() + \
+            self.embed_card(self.highest_card) + self.embed_player(self.highest) + \
+            self.embed_suit(self.rung) + \
+            self.embed_player(self.id) + \
+            self.embed_player(self.dominating) + \
+            self.embed_player(self.last_dominant) + \
+            self.higher_cards + \
+            [1 if self.winning_round else 0] + \
+            [1 if self.highest == self.partner else 0] + \
+            self.embed_player(self.partner) + \
+            self.embed_player(self.last_turn) + \
+            self.embed_player(self.next_turn) + \
+            [self.score/7, self.enemy_score/7, self.has_partner_played, self.stack/13, self.num_hand/13]
 
     def get_oracle_vector(self):
         """
@@ -106,17 +187,19 @@ class Observation:
             flatten([self.embed_card(card) for card in self.cards[2]]) + \
             flatten([self.embed_card(card) for card in self.cards[3]]) + \
             self.embed_hand_cards() + \
+            self.embed_last_hand_cards() + \
             self.embed_card(self.highest_card) + self.embed_player(self.highest) + \
             self.embed_suit(self.rung) + \
-            self.higher_cards + \
-            [1 if self.winning_round else 0] + \
-            self.embed_player(self.last_turn) + \
-            self.embed_player(self.next_turn) + \
             self.embed_player(self.id) + \
             self.embed_player(self.dominating) + \
             self.embed_player(self.last_dominant) + \
+            self.higher_cards + \
+            [1 if self.winning_round else 0] + \
+            [1 if self.highest == self.partner else 0] + \
             self.embed_player(self.partner) + \
-            [self.score, self.enemy_score, self.has_partner_played, self.stack, self.num_hand, self.hand_idx]
+            self.embed_player(self.last_turn) + \
+            self.embed_player(self.next_turn) + \
+            [self.score / 7, self.enemy_score / 7, self.has_partner_played, self.stack / 13, self.num_hand / 13, self.hand_idx / 4]
         
         return self.oracle_vector
     
@@ -126,11 +209,13 @@ class Observation:
         to select the optimal rung (hopefully)
         """
         self.oracle_rung_vector = \
-            flatten([self.embed_card(card) for card in self.cards[0] if card]) + \
-            flatten([self.embed_card(card) for card in self.cards[1] if card]) + \
-            flatten([self.embed_card(card) for card in self.cards[2] if card]) + \
-            flatten([self.embed_card(card) for card in self.cards[3] if card]) + \
-            self.embed_player(self.id)
+            flatten([self.embed_card(card) for card in self.cards[0]]) + \
+            flatten([self.embed_card(card) for card in self.cards[1]]) + \
+            flatten([self.embed_card(card) for card in self.cards[2]]) + \
+            flatten([self.embed_card(card) for card in self.cards[3]]) + \
+            [0 for _ in range(193)] + \
+            self.embed_player(self.id) + \
+            [0 for _ in range(41)]
         
         return self.oracle_rung_vector
 
@@ -147,6 +232,12 @@ class Observation:
             embedding += self.embed_card(card) + self.embed_player(self.hand_played_by[i])
         return embedding
         
+    def embed_last_hand_cards(self):
+        embedding = []
+        for i, card in enumerate(self.last_hand):
+            embedding += self.embed_card(card) + self.embed_player(self.last_hand_played_by[i])
+        return embedding
+
     def embed_cards_seen(self):
         embedding = []
         assert len(self.cards_played_by) == len(self.cards_seen)

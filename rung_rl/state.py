@@ -22,8 +22,8 @@ the agent to get the move.
 class State:
 
     def __init__(self, cards, player_id=None, hand=None, hand_played_by=None, stack=None, rung=None,
-                 hand_idx=None, hand_place=None, dominant=None, last_hand=None, highest=None,
-                 last_dominant=None, cards_played=None, cards_played_by=None,
+                 hand_idx=None, hand_place=None, dominant=None, last_hand=None, last_hand_played_by=None,
+                 highest=None, last_dominant=None, cards_played=None, cards_played_by=None,
                  score=None, enemy_score=None, highest_card=None, higher_cards=None, winning_round=None,
                  last_turn=None, next_turn=None, has_partner_played=None, action_mask=None):
         self.cards = cards # these cards are for every player (for oracle)
@@ -35,6 +35,7 @@ class State:
         self.hand_place = hand_place
         self.dominant = dominant
         self.last_hand = last_hand
+        self.last_hand_played_by = last_hand_played_by
         self.highest = highest
         self.last_dominant = last_dominant
         self.player_id = player_id

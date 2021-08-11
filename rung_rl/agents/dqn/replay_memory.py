@@ -2,7 +2,7 @@ from collections import namedtuple
 import random
 
 Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward', 'action_mask'))
+                        ('state', 'action', 'next_state', 'reward', 'action_mask', 'hidden_state', 'next_hidden'))
 
 StateAction = namedtuple('StateAction', ('state', 'action'))
 

@@ -25,6 +25,7 @@ class Game():
         self.debug = debug  # whether to print intermediate debug information about the game
         self.deck = Deck()  # start with a standard deck of standard playing cards
         self.hand = [None, None, None, None]  # a hand represents the playing hand
+        self.cost = [0, 0, 0, 0] # the cost of the card played in the hand by each player
         self.hand_player = [None, None, None, None]  # the index of the player who played this card on the hand
         self.current_player = None  # the index of the player whose turn it is
         self.scores = [0 for _ in range(4)]  # the scores for the teams
@@ -36,6 +37,7 @@ class Game():
         self.done = False
         self.previous_winner = None
         self.last_hand = [None, None, None, None]
+        self.last_hand_played_by = [None, None, None, None]
         self.cards_played = [None for _ in range(52)] # the cards played till now
         self.cards_played_by = [None for _ in range(52)] # which player played the card
         self.cards_played_idx = 0
@@ -90,7 +92,7 @@ class Game():
         suits = [suit for suit in Suit]
         winner = self.players[toss]
         self.DEBUG(str(self.player_cards[toss]))
-        move = winner.get_rung(State(self.player_cards, toss), toss)
+        move = winner.get_rung(State(self.player_cards, toss, action_mask=self.rung_action_mask()), toss)
         move = move.item()
         assert move >= 0 and move <= 3
         self.rung = suits[move]
@@ -140,7 +142,7 @@ class Game():
 
             state = State(self.player_cards, self.current_player, self.hand, player_idx, self.stack,
                           self.rung if self.rung else None, self.hands + 1, i,
-                          self.dominant, self.last_hand,
+                          self.dominant, self.last_hand, self.last_hand_played_by,
                           highest, self.last_dominant,  self.cards_played,
                           self.cards_played_by, self.scores[self.current_player],
                           self.scores[self.next_player()],
@@ -163,8 +165,11 @@ class Game():
             if not valid:
                 print(move, self.current_player, self.player_cards[self.current_player], self.action_mask(self.current_player))
             assert valid
-            self.hand[self.hand_idx] = self.draw_card(move, self.current_player)
-            player_idx[self.hand_idx] = self.current_player
+            card = self.draw_card(move, self.current_player)
+            cost = self.card_cost(card)
+            self.cost[self.current_player] = cost # the cost of the card for the player
+            self.hand[self.hand_idx] = card # the hand index
+            player_idx[self.hand_idx] = self.current_player # the card played index
             # add the card to the cards seen
             self.cards_played[self.cards_played_idx] = self.hand[self.hand_idx]
             self.cards_played_by[self.cards_played_idx] = self.current_player
@@ -200,9 +205,9 @@ class Game():
                 self.DEBUG("WINNER: ", winner1, winner2)
             for i, player in enumerate(self.players):
                 if i == winner1 or i == winner2:
-                    player.reward(reward, i, self.done)
+                    player.reward(reward-self.cost[i], i, self.done)
                 else:
-                    player.reward(-reward, i, self.done)
+                    player.reward(-reward-self.cost[i], i, self.done)
                     # if self.done:
                         # player.reward(-reward, i, self.done)
                     # else:
@@ -211,24 +216,27 @@ class Game():
 
         else:
             for i, player in enumerate(self.players):
-                player.reward(0, i)
+                # the reward is just the cost of the cards played
+                # by each player
+                player.reward(-self.cost[i], i)
         self.last_dominant = self.dominant
         self.dominant = dominant
         # clear the hand and set the new next player
         self.last_hand = self.hand
-        
-
+        self.last_hand_played_by = player_idx
+        self.cost = [0, 0, 0, 0]
         self.hand = [None for _ in range(4)]
         self.hand_idx = 0
         self.current_player = self.dominant
         if self.stack == 0:
-            self.last_dominant = None
+            self.dominant = None
         self.DEBUG("Ending hand", self.hands, "\n")
 
     def play_game(self):
         for i in range(13):
             if self.game_over():
-                return self.end_game()
+                w = self.end_game()
+                return w
             self.play_hand()
         return self.end_game()
 
@@ -327,7 +335,7 @@ class Game():
         action_mask = self.action_mask(self.current_player) # allowed moves
         if highest_card is None:
             # every playable card card you play will be a higher card
-            return action_mask
+            return action_mask[:-4]
         
         higher_cards = []
         for i, card in enumerate(self.player_cards[self.current_player]):
@@ -340,9 +348,17 @@ class Game():
         Returns the mask for the available actions for a player
         """
         if self.hand_idx == 0 or not self.has_suit(player):
-            return [1 if card else 0 for card in self.player_cards[player]]
+            return [1 if card else 0 for card in self.player_cards[player]] + [0 for _ in range(4)]
         else:
-            return [1 if card and card.suit == self.hand[0].suit else 0 for card in self.player_cards[player]]
+            return [1 if card and card.suit == self.hand[0].suit else 0 
+                        for card in self.player_cards[player]] + [0 for _ in range(4)]
+
+    def rung_action_mask(self):
+        """
+        Returns the mask for the available moves for a player
+        during the selection of rung. 
+        """
+        return [0 for _ in range(13)] + [1 for _ in range(4)]
 
     def next_player(self, player=None):
         """
@@ -381,3 +397,14 @@ class Game():
 
     def get_state(self):
         return
+
+    def card_cost(self, card: Card):
+        """
+        Returns the cost of the card which is used to calculate
+        the negative reward propotional to the cost
+        TODO: Scale the cost correctly to shape the reward
+        """
+        cost = (card.face.value - 1) / 13
+        if card.suit == self.rung:
+            cost = cost * 2
+        return cost / 100

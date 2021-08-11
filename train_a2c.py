@@ -122,7 +122,7 @@ def train_a2c(num_games, debug=False):
             print("Steps done: {}".format(players[0].steps))
 
         if i % 5000 == 0 and i != 0:
-            temp_players_radiant = [players[0], RandomAgent(1), players[2], RandomAgent(3)]
+            temp_players_radiant = [players[0], RandomAgent(), players[2], RandomAgent()]
             temp_players_dire = [dqn_agent, players[1], dqn_agent, players[3]]
         #     # for player in players:
         #     #     player.eval = True
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     agent.load_model("final")
     agent.eval =True
     # agent.deterministic = True
-    players = [agent, RandomAgent(1), agent, RandomAgent(2)]
+    players = [agent, RandomAgent(), agent, RandomAgent()]
     evaluate(10000, players, 0, False)
     players = [agent, dqn_agent, agent, dqn_agent]
     print("Vs DQN")

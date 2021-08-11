@@ -9,6 +9,7 @@ def plot(x, radiant, dire):
         fig = plt.figure()
     plt.cla()
     plot_radiant(x, radiant)
+    plot_dire(x, dire)
     plot_trendline(x)
     plt.legend()
     plt.grid(True, axis='y')
@@ -30,12 +31,15 @@ def savefig():
     plt.savefig("graph.png")
 
 def plot_radiant(x, y):
-    plt.plot(x, y, '--xb', label="Against Random")
+    plt.plot(x, y, '--or', label="Against Self-200")
 
 
 def plot_dire(x, y):
-    plt.plot(x, y, '--or', label="Against Random")
+    plt.plot(x, y, '--xb', label="Against DQN")
+
+def plot_random(x, y):
+    plt.plot(x, y, '--+m', label="Against Random")
 
 def plot_trendline(x):
-    y = [50 for _ in x]
+    y = [0.5 for _ in x]
     plt.plot(x, y, 'k', label='Baseline (50%)')

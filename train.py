@@ -1,6 +1,8 @@
+from rung_rl.agents.abstract_agent import Agent
 from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
 from rung_rl.agents.random_agent import RandomAgent
+from rung_rl.agents.retarded_agent import RetardedAgent
 from rung_rl.agents.oracle.oracle import Oracle
 from rung_rl.rung import Game
 import rung_rl.plotter as plt
@@ -69,80 +71,89 @@ def train_dqn(num_games, debug=False):
     win_rate_radiant = []
     win_rate_dire = []
     games = []
-    dqn_agent = DQNAgent(False)
-    dqn_agent.load_model("final")
-    dqn_agent.eval= True
-    weak_agent = DQNAgent(False)
+
+    weak_agent = DQNAgent(False, True)
     weak_agent.eval = True
     # plt.plot(games, win_rate_radiant, win_rate_dire)
     print("Starting training")
-    agent = Oracle(True) # to indicate that we want to train the agent
+    agent = DQNAgent(True, True) # to indicate that we want to train the agent
     agent.save_model("weak")
     players = [agent, agent, agent, agent]
-    secondary_players = [agent, weak_agent, agent, weak_agent]
+    # secondary_players = [agent, weak_agent, agent, weak_agent]
     wins = 0
     reward = 0
     rewards = []
     plt.plot(games, win_rate_radiant, win_rate_dire)
     i = 0
+    games_i = 0
     # players[0].save_model("weak")
     while 1:
         game = Game(players, debug, debug)
         game.initialize()
         game.play_game()
         agent.optimize_model()
-        agent.optimize_rung_network()
-        print()
+        # agent.optimize_rung_network()
+                # print()
         # rewards = [players[0].get_rewards(), players[1].get_rewards()]
         # wins += int(rewards[0] == max(rewards))
         # reward += rewards[0]
         if i % 250 == 0:
             agent.mirror_models()
 
-        if i % 800 == 0 and i != 0:
-            # strategy_collapse
-            weak_agent.load_model("weak")
-            for _ in range(200):
-                secondary_game = Game(secondary_players, debug, debug)
-                secondary_game.initialize()
-                secondary_game.play_game()
-                agent.optimize_model()
-                agent.optimize_rung_network()
-                print()
-                # i += 1
-            agent.save_model("weak")
+        # if i % 800 == 0 and i != 0:
+        #     # strategy_collapse
+        #     weak_agent.load_model("weak")
+        #     for _ in range(200):
+        #         secondary_game = Game(secondary_players, debug, debug)
+        #         secondary_game.initialize()
+        #         secondary_game.play_game()
+        #         for _ in range(1):
+        #             agent.optimize_model()
+        #             agent.optimize_rung_network()
+        #             print()
+        #         # i += 1
+        #     agent.save_model("weak")
         if i % 300 == 0:
         #     print("Last 100 games win rate: {}. Rewards {}. Total games {}]"
         #           .format(wins / 100, reward / 100, i))
-            print("Total Games: {}".format(i*1.25))
+            print("Total Games: {}".format(i))
         
             # win_rate_radiant.append(random_wins_team_0*100)
             # win_rate_dire.append(random_wins_team_1*100)
             # games.append(i)
             # plt.plot(games, win_rate_radiant, win_rate_dire)
             
-        if i % 5000 == 0 and i != 0:
+        if i % 10000 == 0 and i != 0:
             players[0].save_model("final")
             agent.eval = True
             agent.train = False
             # for player in players:
             #     player.eval = True
             #     player.train = False
-            players3 = [players[0], dqn_agent, players[2], dqn_agent]
-            avg_reward, wind_rate_r = evaluate(100, players3, 0)
-            players2 = [players[0], RandomAgent(1), players[2], RandomAgent(3)]
-            avg_reward, win_rate_d = evaluate(100, players2, 0)
+            weak_agent.load_model("weak")
+            players3 = [agent, weak_agent, agent, weak_agent]
+            win_rate_r, _ = evaluate(500, players3, 0)
+            players2 = [agent, RandomAgent(), agent, RandomAgent()]
+            win_rate_d, _ = evaluate(500, players2, 0)
             # rewards.append(avg_reward)
-            win_rate_radiant.append(wind_rate_r * 100)
-            win_rate_dire.append(win_rate_d * 100)
+            win_rate_radiant.append(win_rate_r/100)
+            win_rate_dire.append(win_rate_d/100)
             # win_rate_d = evaluate(100, players3, 1)
             # win_rate_radiant.append(win_rate_r)
             # win_rate_dire.append(win_rate_d)
-            games.append(i*1.25)
-            plt.plot(games, win_rate_radiant, win_rate_dire)
+            games.append(games_i)
+            plt.plot(games, win_rate_radiant,win_rate_dire)
             plt.savefig()
             agent.eval = False
             agent.train = True
+
+            if win_rate_r < 50:
+                # if the previous agent beats you, train against that
+                strategy_collapse(players3, agent)
+                games_i += 2500
+
+            agent.save_model("weak")
+
             # for player in players:
             #     player.eval = False
             #     player.train = True
@@ -171,49 +182,44 @@ def train_dqn(num_games, debug=False):
 
         #     i += 2000
         i += 1
+        games_i += 1
 
-    for player in players:
-        if type(player) == Oracle:
-            player.save_model("final")
     # print("Starting evaluation")
     # agent.deterministic = True
     # evaluate(1000, players2)
 
 
-def strategy_collapse(players, idx):
+def strategy_collapse(players, agent):
     wins = 0
-    players[idx].reset()
-    for i in range(1000):
+    # agent.reset()
+    for i in range(2500):
         game = Game(players)
         game.initialize()
         game.play_game()
-        players[idx].optimize_model()
+        agent.optimize_model()
+
+        if i % 250 == 0:
+            agent.mirror_models()
         # rewards = [players[0].get_rewards(), players[1].get_rewards()]
         # wins += int(rewards[0] == max(rewards))
         # print()
-    return players[idx].reset()
-
+    # return agent.reset()
 
 def evaluate(num_games, players, idx=0, debug=False):
     print("Starting evaluation...")
-    players[idx].reset(idx)
-    winner = None
     wins = 0
-    rewards = 0
+    toss = None
     for i in range(num_games):
         game = Game(players, debug, debug)
-        game.initialize(winner)
-        winner = game.play_game()
-        win, reward = players[idx].reset(idx)
-        rewards += reward
-        wins += win
-        # rewards = [players[0].get_rewards(), players[1].get_rewards()]
-        # wins += int(rewards[0] == max(rewards))
-        # print()
-    rewards /= num_games
-    wins /= num_games
-    print(wins , wins / num_games * 100)
-    return rewards, wins
+        game.initialize(toss)
+        winners = game.play_game()
+        if idx in winners:
+            wins += 1
+        toss = winners[0]
+
+    avg_reward = 0
+    print(wins, wins / num_games, avg_reward)
+    return wins / num_games * 100, avg_reward
 
 
 def play_game(players):
@@ -226,12 +232,17 @@ def play_game(players):
 if __name__ == "__main__":
     # pass
     train_dqn(1)
-    dqn_agent = DQNAgent(False)
-    agent = Oracle(False)
+    oracle = DQNAgent(False, True, True)
+    dqn_agent = DQNAgent(False, True, False)
+    oracle.load_model("oracle")
+    oracle.eval= True
+    dqn_agent.load_model("normal")
+    # agent = Oracle(False)
     dqn_agent.eval = True
-    agent.eval = True
-    players = [agent, RandomAgent(1), agent, RandomAgent(2)]
-    evaluate(10000, players, 2, False)
+    # agent.eval = True
+    players = [oracle, dqn_agent, oracle, dqn_agent]
+    # players = [dqn_agent, HumanAgent(1), dqn_agent, dqn_agent]
+    evaluate(1, players, 0, True)
     # # # agent2 = DQNAgent(False)
     # agent.load_model("final")
     # # # agent2.load_model()

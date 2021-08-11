@@ -28,8 +28,6 @@ def get_render_func(venv):
 
 
 flatten = lambda l: [item for sublist in l for item in sublist]
-
-
 # def get_vec_normalize(venv):
 #     if isinstance(venv, VecNormalize):
 #         return venv
