@@ -106,8 +106,8 @@ class PPOAgent:
 
 
     def optimize_model_directly(self, state_batch, action_batch, log_probs_batch, reward_batch, batch_size):
-        action, value, entropy = self.ppo.update_ppo(state_batch, 
-                                                        action_batch, 
+        action, value, entropy = self.ppo.update_ppo(state_batch,
+                                                        action_batch,
                                                         log_probs_batch,
                                                         reward_batch,
                                                         batch_size)
@@ -230,7 +230,7 @@ class PPOPlayer:
         self.steps += 1
 
         return action
-    
+
     def create_action_mask_tensor(self, mask):
         return torch.tensor([[0 if m else -1e8 for m in mask]], dtype=torch.float, device=device)
 
@@ -250,7 +250,7 @@ class PPOPlayer:
         else:
             # if len(self.rewards[player]) == 1:
                 # 1 step a2c
-                # future_returns = 
+                # future_returns =
             # print(self.rewards[player])
             returns = 0
             for i in range(len(self.rewards)-1, -1, -1):
@@ -273,7 +273,7 @@ class PPOPlayer:
 
         # self.clear_trajectory()
 
-    
+
 
 
     def clear(self):
@@ -286,7 +286,7 @@ class PPOPlayer:
         self.values = []
         self.dones = []
         self.rewards = []
-        
+
 
     def end(self, win, player):
         self.wins += win
@@ -311,4 +311,3 @@ class PPOPlayer:
         self.total_reward = 0
         return wins, reward
 
-   

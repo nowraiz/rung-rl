@@ -8,7 +8,7 @@ from rung_rl.agents.human_agent import HumanAgent
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.env import RungEnv
 from rung_rl.rung import Game
-# import rung_rl.plotter as plt
+import rung_rl.plotter as plt
 import torch
 # import torch.multiprocessing as mp
 import statistics
@@ -18,8 +18,9 @@ import time
 # import multiprocessing as mp
 import torch.multiprocessing as mp
 
-PROCESSES = 6 
+PROCESSES = 6
 CONCURRENT_GAMES = PROCESSES * 8
+
 
 def play_game(players):
     game = Game(players)
@@ -46,7 +47,6 @@ def strategy_collapse(agent, weak_agent, num_games):
     agent.save_model("weak")
 
 
-
 def train_a2c(num_games, debug=False):
     agent = PPOAgent()
     weak_agent = PPOAgent()
@@ -55,6 +55,7 @@ def train_a2c(num_games, debug=False):
     dqn_agent.eval = True
     # players = [agent, agent, agent, agent]
     win_rate_radiant = []
+    games_list = []
     win_rate_dire = []
     games = []
     rewards = []
@@ -80,20 +81,21 @@ def train_a2c(num_games, debug=False):
         pipes.append(conn1)
         queues.append(queue)
         p.start()
-        # send the initial parameters
-        conn1.send("REFRESH")
-        queue.put(agent.actor_critic.state_dict())
-        
+
     # start the games
-    
+
     # which of the processes are running the games
     running = [True for _ in range(PROCESSES)]
     total_games = 0
     for i in range(num_games):
         # loops
         games = 0
-        for i , p in enumerate(processes):
+        # send the newest parameters:
+        for i, p in enumerate(processes):
             pipe = pipes[i]
+            q = queues[i]
+            pipe.send("REFRESH")
+            q.put(agent.actor_critic.state_dict())
             pipe.send("RESET")
             running[i] = True
             games += 1
@@ -117,7 +119,7 @@ def train_a2c(num_games, debug=False):
                         log_prob_batch += log_prob_game_batch
 
                         if games < CONCURRENT_GAMES:
-                            pipe.send("RESET") # start a new game
+                            pipe.send("RESET")  # start a new game
                             games += 1
                         else:
                             running[i] = False
@@ -142,7 +144,6 @@ def train_a2c(num_games, debug=False):
 
                         running[i] = False
 
-
         total_games += games
         print(f'Total games: {total_games}')
         agent.optimize_model_directly(state_batch, action_batch, log_prob_batch, reward_batch, len(state_batch))
@@ -151,6 +152,15 @@ def train_a2c(num_games, debug=False):
         action_batch = []
         log_prob_batch = []
         reward_batch = []
+
+        if (total_games % 5040) == 0:
+            players = [agent.get_player(False), RandomAgent(1), agent.get_player(False), RandomAgent(2)]
+            win_rate_r, _ = evaluate(100, players, 0, False)
+
+            games_list.append(total_games)
+            win_rate_radiant.append(win_rate_r)
+            plt.plot(games_list, win_rate_radiant, None)
+            agent.clear_experience()
         # if (i % (CONCURRENT_GAMES * 80) == 0 and i != 0):
         #     #
         #     weak_agent.load_model("weak")
@@ -169,17 +179,16 @@ def train_a2c(num_games, debug=False):
         #     agent.clear_experience()
         #     # strategy collapse
         #     strategy_collapse(agent, weak_agent, CONCURRENT_GAMES*20)
-        
-        if ((total_games) % 1000) == 0:
+
+        if (total_games % 1000) == 0:
             agent.save_model("final")
 
         # if i % (CONCURRENT_GAMES * 4) == 0:
 
- 
     # plt.savefig()
     agent.save_model("final")
     # print("Steps done: {}".format(players[0].steps))
-    
+
 
 def evaluate(num_games, players, idx=0, debug=False):
     print("Starting evaluation...")
@@ -199,9 +208,10 @@ def evaluate(num_games, players, idx=0, debug=False):
     print(wins, wins / num_games, avg_reward)
     return wins / num_games * 100, avg_reward
 
+
 def main():
     # mp.set_start_method('spawn')
-    # train_a2c(10000000)
+    train_a2c(10000000)
     # test()
     agent = PPOAgent(False)
     # agent.load_model("final")
@@ -214,5 +224,6 @@ def main():
     # evaluate(1000, players, 0, False)
     # # players = [RandomAgent(0), agent, RandomAgent(2), agent]
 
+
 if __name__ == "__main__":
-    main()    
+    main()

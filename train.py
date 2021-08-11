@@ -72,7 +72,7 @@ def train_dqn(num_games, debug=False):
     dqn_agent = DQNAgent(False)
     dqn_agent.load_model("final")
     dqn_agent.eval= True
-    weak_agent = Oracle(False)
+    weak_agent = DQNAgent(False)
     weak_agent.eval = True
     # plt.plot(games, win_rate_radiant, win_rate_dire)
     print("Starting training")

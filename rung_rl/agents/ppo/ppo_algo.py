@@ -13,7 +13,7 @@ class PPO():
                  clip_param=0.2,
                  ppo_epoch=4,
                  num_mini_batch=64,
-                 value_loss_coef=0.5,
+                 value_loss_coef=1,
                  entropy_coef=0.01,
                  max_grad_norm=0.5,
                  eps=None,
@@ -59,7 +59,7 @@ class PPO():
         actions = torch.cat(actions)
         log_probs = torch.cat(log_probs)
         returns = torch.cat(returns)
-        sampler = BatchSampler(SubsetRandomSampler(range(batch_size)), 64, drop_last=True)
+        sampler = BatchSampler(SubsetRandomSampler(range(batch_size)), 32, drop_last=True)
         for indices in sampler:
             # print(indices)
             yield states[indices], actions[indices], log_probs[indices], returns[indices]
