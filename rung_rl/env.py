@@ -19,7 +19,8 @@ class RungEnv(Process):
         super(RungEnv, self).__init__()
         self.pipe: Pipe = pipe
         self.queue: Queue = queue
-        self.params = None
+        self.actor = None
+        self.critic = None
         self.game = None
         self.agent = PPOAgent()
 
@@ -28,8 +29,9 @@ class RungEnv(Process):
         Gets the parameters of the latest model from the parent process and loads
         them into the agent
         """
-        self.params = self.queue.get() 
-        self.agent.load_params(self.params)
+        self.actor = self.queue.get() 
+        self.critic = self.queue.get()
+        self.agent.load_params(self.actor, self.critic)
         
     def prepare_game(self):
         """

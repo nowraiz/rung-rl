@@ -18,7 +18,7 @@ import time
 # import multiprocessing as mp
 import torch.multiprocessing as mp
 
-PROCESSES = 6
+PROCESSES = 4 
 CONCURRENT_GAMES = PROCESSES * 8
 
 
@@ -95,7 +95,8 @@ def train_a2c(num_games, debug=False):
             pipe = pipes[i]
             q = queues[i]
             pipe.send("REFRESH")
-            q.put(agent.actor_critic.state_dict())
+            q.put(agent.actor.state_dict())
+            q.put(agent.critic.state_dict())
             pipe.send("RESET")
             running[i] = True
             games += 1
@@ -154,13 +155,14 @@ def train_a2c(num_games, debug=False):
         reward_batch = []
 
         if (total_games % 5040) == 0:
-            players = [agent.get_player(False), RandomAgent(1), agent.get_player(False), RandomAgent(2)]
+            players = [agent.get_player(False), RandomAgent(), agent.get_player(False), RandomAgent()]
             win_rate_r, _ = evaluate(100, players, 0, False)
 
             games_list.append(total_games)
             win_rate_radiant.append(win_rate_r)
             plt.plot(games_list, win_rate_radiant, None)
             agent.clear_experience()
+            agent.save_model("final")
         # if (i % (CONCURRENT_GAMES * 80) == 0 and i != 0):
         #     #
         #     weak_agent.load_model("weak")
@@ -180,8 +182,6 @@ def train_a2c(num_games, debug=False):
         #     # strategy collapse
         #     strategy_collapse(agent, weak_agent, CONCURRENT_GAMES*20)
 
-        if (total_games % 1000) == 0:
-            agent.save_model("final")
 
         # if i % (CONCURRENT_GAMES * 4) == 0:
 
@@ -211,13 +211,13 @@ def evaluate(num_games, players, idx=0, debug=False):
 
 def main():
     # mp.set_start_method('spawn')
-    train_a2c(10000000)
+    # train_a2c(10000000)
     # test()
     agent = PPOAgent(False)
     # agent.load_model("final")
     # agent.eval =True
     # agent.deterministic = True
-    players = [agent.get_player(False), RandomAgent(1), agent.get_player(False), RandomAgent(2)]
+    players = [agent.get_player(False), RandomAgent(), agent.get_player(False), RandomAgent()]
     evaluate(1000, players, 0, False)
     # players = [agent.get_player(False), dqn_agent, agent.get_player(False), dqn_agent]
     # print("Vs DQN")

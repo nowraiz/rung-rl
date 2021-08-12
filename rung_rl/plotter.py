@@ -9,7 +9,8 @@ def plot(x, radiant, dire):
         fig = plt.figure()
     plt.cla()
     plot_radiant(x, radiant)
-    plot_dire(x, dire)
+    if dire:
+        plot_dire(x, dire)
     plot_trendline(x)
     plt.legend()
     plt.grid(True, axis='y')
@@ -31,7 +32,7 @@ def savefig():
     plt.savefig("graph.png")
 
 def plot_radiant(x, y):
-    plt.plot(x, y, '--or', label="Against Self-200")
+    plt.plot(x, y, '--or', label="Against Random")
 
 
 def plot_dire(x, y):

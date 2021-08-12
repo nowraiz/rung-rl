@@ -111,12 +111,13 @@ class PPOAgent:
         """
         self.players = []
 
-    def load_params(self, params):
+    def load_params(self, actor, critic):
         """
         Loads the given params into the actor_critic model directly. Used in parallel environments
         to create arbitrary number of agents with the same parameters
         """
-        self.actor_critic.load_state_dict(params)
+        self.actor.load_state_dict(actor)
+        self.critic.load_state_dict(critic)
 
 
     def optimize_model_directly(self, state_batch, action_batch, log_probs_batch, reward_batch, batch_size):

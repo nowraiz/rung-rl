@@ -12,9 +12,9 @@ class PPO():
                  actor_optimizer,
                  critic_optimizer,
                  clip_param=0.2,
-                 ppo_epoch=10,
-                 num_mini_batch=128,
-                 value_loss_coef=0.5,
+                 ppo_epoch=4,
+                 num_mini_batch=64,
+                 value_loss_coef=1,
                  entropy_coef=0.01,
                  max_grad_norm=0.5,
                  eps=None,
@@ -60,7 +60,7 @@ class PPO():
         actions = torch.cat(actions)
         log_probs = torch.cat(log_probs)
         returns = torch.cat(returns)
-        sampler = BatchSampler(SubsetRandomSampler(range(batch_size)), 32, drop_last=True)
+        sampler = BatchSampler(SubsetRandomSampler(range(batch_size)), self.num_mini_batch, drop_last=True)
         for indices in sampler:
             # print(indices)
             yield states[indices], actions[indices], log_probs[indices], returns[indices]
@@ -115,7 +115,7 @@ class PPO():
                 value_loss_total += value_loss.item()
                 entropy_total += entropy_loss.item()
 
-        num_updates = self.ppo_epoch * self.num_mini_batch
+        num_updates = self.ppo_epoch * (batch_size / self.num_mini_batch)
         action_loss_total /= num_updates
         value_loss_total /= num_updates
         entropy_total /= num_updates
