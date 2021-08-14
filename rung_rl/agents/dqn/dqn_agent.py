@@ -428,6 +428,11 @@ class DQNAgent:
         except FileNotFoundError:
             print("File not found. Creating a new network...")
 
+    def load_model_from_path(self, path):
+        state_dict = torch.load(path)
+        self.policy_net.load_state_dict(state_dict)
+        self.target_net.load_state_dict(state_dict)
+
     def model_path(self, i):
         return "{}/model_dqn_{}_{}".format(MODEL_PATH, self.name, i)
 
