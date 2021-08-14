@@ -1,17 +1,12 @@
-import random
 import os
-import numpy as np
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import time
 
 import rung_rl.utils as utils
+from rung_rl.obs import Observation
 from .a2c import A2C_ACKTR
 from .model import Policy
 from .storage import RolloutStorage
-from rung_rl.obs import Observation
 
 args = {}
 args["use_gae"] = True

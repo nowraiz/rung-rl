@@ -1,6 +1,7 @@
-import torch.nn as nn
 import torch
-import torch.nn.init as init
+import torch.nn as nn
+
+
 # import torch.nn.functional as F
 
 
@@ -20,9 +21,12 @@ class DQNNetwork(nn.Module):
         x = torch.tanh(self.hidden(x))
         return self.head(x)
 
+
 """
 The recurrent version of the q network. 
 """
+
+
 class DRQNNetwork(nn.Module):
 
     def __init__(self, input_features, hidden_size, outputs):
@@ -38,10 +42,10 @@ class DRQNNetwork(nn.Module):
         # init(self.output.weight)
 
         # for param in self.gru.parameters():
-            # if len(param.shape) >= 2:
-                # init.orthogonal_(param.data)
-            # else:
-                # init.normal_(param.data)
+        # if len(param.shape) >= 2:
+        # init.orthogonal_(param.data)
+        # else:
+        # init.normal_(param.data)
 
     def forward(self, x, hidden_states):
         hidden_states = hidden_states.unsqueeze(0)
@@ -50,4 +54,3 @@ class DRQNNetwork(nn.Module):
         out, hidden = self.gru(x, hidden_states)
         y = torch.tanh(self.hidden(out.squeeze(0)))
         return self.output(y), hidden.squeeze(0)
-        

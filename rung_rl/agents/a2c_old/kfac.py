@@ -7,6 +7,7 @@ import torch.optim as optim
 
 from rung_rl.utils import AddBias
 
+
 # TODO: In order to make this code faster:
 # 1) Implement _extract_patches as a single cuda kernel
 # 2) Compute QR decomposition in a separate process
@@ -181,7 +182,7 @@ class KFACOptimizer(optim.Optimizer):
             classname = module.__class__.__name__
             if classname in self.known_modules:
                 assert not ((classname in ['Linear', 'Conv2d']) and module.bias is not None), \
-                                    "You must have a bias as a separate layer"
+                    "You must have a bias as a separate layer"
 
                 self.modules.append(module)
                 module.register_forward_pre_hook(self._save_input)
@@ -224,7 +225,7 @@ class KFACOptimizer(optim.Optimizer):
 
             v1 = self.Q_g[m].t() @ p_grad_mat @ self.Q_a[m]
             v2 = v1 / (
-                self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
+                    self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
             v = self.Q_g[m] @ v2 @ self.Q_a[m].t()
 
             v = v.view(p.grad.data.size())

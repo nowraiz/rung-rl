@@ -26,7 +26,7 @@ class State:
                  highest=None, last_dominant=None, cards_played=None, cards_played_by=None,
                  score=None, enemy_score=None, highest_card=None, higher_cards=None, winning_round=None,
                  last_turn=None, next_turn=None, has_partner_played=None, action_mask=None):
-        self.cards = cards # these cards are for every player (for oracle)
+        self.cards = cards  # these cards are for every player (for oracle)
         self.hand = hand
         self.hand_played_by = hand_played_by
         self.stack = stack

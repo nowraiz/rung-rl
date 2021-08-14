@@ -1,5 +1,5 @@
-from collections import namedtuple
 import random
+from collections import namedtuple
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward', 'action_mask'))
@@ -35,13 +35,14 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
+
 class ActionMemory(object):
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
         self.position = 0
         self.entries_seen = 0
-    
+
     def push_with_sampling(self, *args):
         """Saves a transition with reservoir sampling"""
         if len(self.memory) < self.capacity:

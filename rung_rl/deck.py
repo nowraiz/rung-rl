@@ -1,5 +1,7 @@
-from enum import IntEnum
 import random
+from enum import IntEnum
+
+
 class Suit(IntEnum):
     """
     Suit represents one of the possible suit of a playing card.
@@ -8,6 +10,7 @@ class Suit(IntEnum):
     DIAMONDS = 2
     CLUBS = 3
     HEARTS = 4
+
 
 class Face(IntEnum):
     """
@@ -27,21 +30,24 @@ class Face(IntEnum):
     KING = 13
     ACE = 14
 
+
 PRETTY_SUITS = {
-    "SPADES": chr(9824),   # spades
-    "HEARTS": chr(9829),   # hearts
-    "DIAMONDS": chr(9830),   # diamonds
-    "CLUBS": chr(9827)    # clubs
+    "SPADES": chr(9824),  # spades
+    "HEARTS": chr(9829),  # hearts
+    "DIAMONDS": chr(9830),  # diamonds
+    "CLUBS": chr(9827)  # clubs
 }
+
 
 class Card():
     """
     A card represents a single card from a standard deck of card.
     It has simply a face and suit.
     """
+
     def __init__(self, face, suit):
-        self.face : Face = face
-        self.suit : Suit = suit
+        self.face: Face = face
+        self.suit: Suit = suit
 
     def __str__(self):
         face = None
@@ -53,31 +59,34 @@ class Card():
 
     def __repr__(self):
         return str(self)
+
     def to_int(self):
         return (self.face.value, self.suit.value)
-  
+
 
 class Deck():
     """
     A deck represents a standard deck of 52 cards
     """
+
     def __init__(self):
         self.cards = []
         self.populate_cards()
         self.shuffle_cards()
+
     def populate_cards(self):
         for i in Suit:
             for j in Face:
                 self.cards.append(Card(j, i))
-        assert(self.length() == 52)
-            
+        assert (self.length() == 52)
+
     def shuffle_cards(self):
         for _ in range(1):
             random.shuffle(self.cards)
-        pass # TODO:
-    
+        pass  # TODO:
+
     def pop(self):
         return self.cards.pop()
-            
+
     def length(self):
         return len(self.cards)

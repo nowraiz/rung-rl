@@ -1,7 +1,7 @@
-from rung_rl.agents.dqn.dqn_network import DQNNetwork
-
 import torch
 import torch.nn.functional as F
+
+from rung_rl.agents.dqn.dqn_network import DQNNetwork
 
 network = DQNNetwork(4, 2)
 y = network(torch.tensor([
@@ -19,5 +19,3 @@ print(y)
 # print(y.max(1)[1].view(2, 1))
 # print()
 # print(F.softmax(y))
-
-

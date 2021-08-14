@@ -1,16 +1,14 @@
 import os
-
-import torch
 import random
+
+import numpy as np
+import torch
 import torch.nn as nn
-import math
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
+
 from .nfsp_network import NFSPNetwork
 from .replay_memory import ReplayMemory, Transition, ActionMemory, StateAction
-from ...obs import Observation
-import numpy as np
-import sys
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
@@ -49,7 +47,7 @@ class NFSPAgent:
         self.target_net = NFSPNetwork(INPUTS, NUM_ACTIONS).to(device).eval()
         self.average_policy_net = NFSPNetwork(INPUTS, NUM_ACTIONS).to(device)
         # self.policy_optimizer = optim.RMSprop(self.average_policy.parameters())
-        self.mode = None # the mode the agent is following for the episode 0 = Best-response 1 = Average
+        self.mode = None  # the mode the agent is following for the episode 0 = Best-response 1 = Average
         self.sl_optimizer = optim.Adam(self.average_policy_net.parameters(), lr=S_LR)
         self.rl_optimizer = optim.Adam(self.policy_net.parameters(), lr=Q_LR)
         self.memory = ReplayMemory(100000)
@@ -67,19 +65,19 @@ class NFSPAgent:
         # self.last_ga?me_reward = 0
         # self.cards_seen_index = 0
         self.load_model()
+
     def sample_episode_policy(self):
         toss = random.random()
         if toss < ANTICIPATION:
-            self.mode = 0 # best response
+            self.mode = 0  # best response
         else:
-            self.mode = 1 # average policy
+            self.mode = 1  # average policy
 
     def init_average_policy_net(self):
         # xavier init
         for p in self.average_policy_net.parameters():
             if len(p.data.shape) > 1:
                 nn.init.xavier_uniform_(p.data)
-
 
     def select_action(self, state, action_mask, player):
         if self.mode == 1:
@@ -105,10 +103,9 @@ class NFSPAgent:
             else:
                 return categorical.sample(), False
 
-
         sample = random.random()
         # eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-                        # math.exp(-1. * self.steps_done[player] / EPS_DECAY)
+        # math.exp(-1. * self.steps_done[player] / EPS_DECAY)
         eps_threshold = self.EPS_END
         if self.steps < len(self.epsilons):
             eps_threshold = self.epsilons[self.steps]
@@ -149,15 +146,14 @@ class NFSPAgent:
     def create_action_mask_tensor(self, mask):
         return torch.tensor([[0 if m == 1 else float("-inf") for m in mask]], device=device)
 
-
     def get_move(self, state):
         player = state.player_id
         action_mask = state.get_action_mask()
         state = self.get_obs(state)
         if self.last_state is not None and not self.eval:
             self.memory.push(self.last_state, self.last_action, state, self.last_reward,
-                            self.create_action_mask_tensor(action_mask))
-        
+                             self.create_action_mask_tensor(action_mask))
+
         self.last_state = state
         self.last_action, following_policy = self.select_action(state, action_mask, player)
         if following_policy and not self.eval:
@@ -169,11 +165,11 @@ class NFSPAgent:
             self.optimize_model()
             # self.optimize_model()
 
-        if ((self.steps / UPDATE_EVERY) % TARGET_UPDATE == 0 ):
+        if ((self.steps / UPDATE_EVERY) % TARGET_UPDATE == 0):
             self.mirror_models()
         # if (self.steps % UPDATE_EVERY == 0):
         #     self.optimize_model()
-        
+
         # if ((self.steps / BATCH_SIZE) % TARGET_UPDATE == 0):
         #     self.mirror_models()
         return self.last_action
@@ -202,7 +198,6 @@ class NFSPAgent:
             param.grad.data.clamp_(-10, 10)
         self.sl_optimizer.step()
         return loss.item()
-
 
     def optimize_model(self):
         if self.eval:
@@ -244,7 +239,7 @@ class NFSPAgent:
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
         # print(state_action_values)
         # Compute V(s_{t+1}) for all next states.
-        best_actions = self.policy_net(non_final_next_states) + action_masks # filter out invalid actions
+        best_actions = self.policy_net(non_final_next_states) + action_masks  # filter out invalid actions
         # print(best_actions)
         best_actions = best_actions.max(1)[1].unsqueeze(1)
         # Expected values of actions for non_final_next_states are computed based

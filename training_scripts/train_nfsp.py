@@ -1,14 +1,9 @@
-from rung_rl.agents.nfsp.nfsp_agent import NFSPAgent
+import rung_rl.plotter as plt
 from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
+from rung_rl.agents.nfsp.nfsp_agent import NFSPAgent
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.rung import Game
-import rung_rl.plotter as plt
-import torch
-import torch.multiprocessing as mp
-
-import numpy as np
-from multiprocessing import Process
 
 CONCURRENT_GAMES = 128
 
@@ -79,7 +74,7 @@ def train_nfsp(num_games, debug=False):
         game.play_game()
 
         # for player in players:
-            # player.optimize_model()
+        # player.optimize_model()
 
         if i % 100 == 0:
             print("Total Games: {}".format(i))
@@ -109,7 +104,7 @@ def train_nfsp(num_games, debug=False):
     plt.savefig()
     players[0].save_model("final")
     print("Steps done: {}".format(players[0].steps))
-    
+
 
 def test():
     agent = DQNAgent()

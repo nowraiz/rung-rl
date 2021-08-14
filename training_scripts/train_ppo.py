@@ -1,16 +1,10 @@
-from multiprocessing import process
-from rung_rl.agents.a2c.a2c_agent import A2CAgent
-from rung_rl.agents.ppo.ppo_agent import PPOAgent, PPOPlayer
-from rung_rl.agents.dqn.dqn_agent import DQNAgent
-from rung_rl.agents.human_agent import HumanAgent
+# import torch.multiprocessing as mp
+import time
+
+import rung_rl.plotter as plt
+from rung_rl.agents.ppo.ppo_agent import PPOAgent
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.rung import Game
-import rung_rl.plotter as plt
-import torch
-# import torch.multiprocessing as mp
-import statistics
-import numpy as np
-import time
 
 # from multiprocessing import Pool
 # import multiprocessing as mp

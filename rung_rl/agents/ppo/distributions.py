@@ -1,8 +1,5 @@
-import math
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from rung_rl.utils import AddBias, init
 
@@ -11,6 +8,7 @@ Modify standard PyTorch distributions so they are compatible with this code.
 """
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 #
 # Standardize distribution interfaces
@@ -24,10 +22,10 @@ class FixedCategorical(torch.distributions.Categorical):
     def log_probs(self, actions):
         return (
             super()
-            .log_prob(actions.squeeze(-1))
-            .view(actions.size(0), -1)
-            .sum(-1)
-            .unsqueeze(-1)
+                .log_prob(actions.squeeze(-1))
+                .view(actions.size(0), -1)
+                .sum(-1)
+                .unsqueeze(-1)
         )
 
     def mode(self):
@@ -72,7 +70,7 @@ class Categorical(nn.Module):
 
     def renormalize(self, log, action_mask):
         action_mask_log = torch.tensor([0 if m == 1 else float("-inf") for m in action_mask], device=device)
-        masked = log+action_mask_log
+        masked = log + action_mask_log
         return masked
         # log = F.softmax(log,dim=-1)
 
@@ -94,12 +92,11 @@ class Categorical(nn.Module):
         #     else:
         #         temp[0][i] += balance
         # return torch.Tensor(temp).to(device)
-        
 
-    def forward(self, x,action_mask):
+    def forward(self, x, action_mask):
         x = self.linear(x)
-        
-        return FixedCategorical(logits=self.renormalize(x,action_mask))
+
+        return FixedCategorical(logits=self.renormalize(x, action_mask))
 
 
 class DiagGaussian(nn.Module):

@@ -1,12 +1,11 @@
 import os
-from pickle import TRUE
-from rung_rl.obs import Observation
-from rung_rl.agents.ppo.ppo_algo import PPO
-from typing import List
-import torch
 import random
+from typing import List
+
+import torch
 import torch.optim as optim
-import torch.nn.functional as F
+
+from rung_rl.agents.ppo.ppo_algo import PPO
 from .ppo_network import PPONetwork
 
 # from .rung_network import RungNetwork
@@ -27,13 +26,14 @@ CRITIC_SIZE = 256
 # TARGET_UPDATE = 1000
 # MIN_BUFFER_SIZE = 1000
 # RUNG_BATCH_SIZE = 64
-GAE = False 
+GAE = False
 GAE_LAMBDA = 0.95
 NUM_ACTIONS = 13 + 4
 INPUTS = 1486
 LEARNING_STARTS = 1000
 MODEL_PATH = os.getcwd() + "/models/ppo"
 LR = 5e-5
+
 
 class PPOAgent:
     """
@@ -85,10 +85,10 @@ class PPOAgent:
         i = 0
         for player in self.players:
             length = len(player.states)
-            self.state_batch[i:i+length] = player.states
-            self.action_batch[i:i+length] = player.actions
-            self.log_probs_batch[i:i+length] = player.log_probs
-            self.reward_batch[i:i+length] = player.returns
+            self.state_batch[i:i + length] = player.states
+            self.action_batch[i:i + length] = player.actions
+            self.log_probs_batch[i:i + length] = player.log_probs
+            self.reward_batch[i:i + length] = player.returns
             i += length
         assert i == self.batch_size
 
@@ -118,13 +118,12 @@ class PPOAgent:
         self.actor.load_state_dict(actor)
         self.critic.load_state_dict(critic)
 
-
     def optimize_model_directly(self, state_batch, action_batch, log_probs_batch, reward_batch, batch_size):
         action, value, entropy = self.ppo.update_ppo(state_batch,
-                                                        action_batch,
-                                                        log_probs_batch,
-                                                        reward_batch,
-                                                        batch_size)
+                                                     action_batch,
+                                                     log_probs_batch,
+                                                     reward_batch,
+                                                     batch_size)
 
         print("Action: {}, Value: {}, Entropy: {}".format(action, value, entropy))
         return action, value, entropy
@@ -210,7 +209,7 @@ class PPOPlayer:
             self.actions.append(action)
             self.values.append(value)
         self.steps += 1
-        return action-13
+        return action - 13
 
     def get_rung_obs(self, state):
         obs = state.get_obs()
@@ -291,7 +290,6 @@ class PPOPlayer:
             for i in range(len(self.rewards) - 1, -1, -1):
                 returns = self.rewards[i] + GAMMA * returns
                 self.returns[i] = returns
-
 
     def clear(self):
         """

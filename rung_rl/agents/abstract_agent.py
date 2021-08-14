@@ -26,6 +26,7 @@ class Agent:
     """
     This function is called at the end of the game to signal the end of the game. 
     """
+
     def save_obs(self, *args):
         raise NotImplementedError
 
@@ -43,4 +44,3 @@ class Agent:
 
     def save_model(self, *args):
         raise NotImplementedError
-

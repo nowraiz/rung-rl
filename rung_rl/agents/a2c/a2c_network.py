@@ -1,5 +1,7 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
+
+
 # import torch.nn.functional as F
 
 
@@ -18,12 +20,11 @@ class A2CNetwork(nn.Module):
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x):
         init = torch.tanh(self.input(x))
-        
+
         logits = torch.tanh(self.actor_hidden(init))
         logits = self.actor(logits)
 
         value = torch.tanh(self.critic_hidden(init))
         value = self.critic(value)
-        
-        
+
         return logits, value

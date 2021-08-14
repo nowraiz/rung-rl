@@ -1,13 +1,15 @@
 import random
-from .abstract_agent import Agent
+
 import torch
+
+from .abstract_agent import Agent
 
 
 class RandomAgent(Agent):
     def __init__(self):
         self.rewards = 0
         self.last_game_rewards = 0
-        self.steps = 0 
+        self.steps = 0
         self.wins = 0
 
     def get_move(self, state):
@@ -17,7 +19,7 @@ class RandomAgent(Agent):
         return torch.tensor([[random.choice(choice)]], dtype=torch.long)
 
     def get_rung(self, *args):
-        return torch.tensor([[random.randint(0,3)]], dtype=torch.long)
+        return torch.tensor([[random.randint(0, 3)]], dtype=torch.long)
 
     def reward(self, val, *args):
         self.rewards += val

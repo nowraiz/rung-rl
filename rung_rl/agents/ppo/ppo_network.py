@@ -1,5 +1,7 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
+
+
 # import torch.nn.functional as F
 
 
@@ -16,9 +18,9 @@ class PPONetwork(nn.Module):
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x):
         x = torch.tanh(self.input(x))
-        
+
         x = torch.tanh(self.hidden(x))
 
         logits = self.output(x)
-        
+
         return logits

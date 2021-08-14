@@ -1,16 +1,14 @@
 import os
-
-import torch
 import random
-import math
-import torch.optim as optim
-import torch.nn.functional as F
-from .oracle_network import OracleNetwork
-from .rung_network import RungNetwork
-from .replay_memory import ReplayMemory, Transition, ActionMemory, StateAction
-from ...obs import Observation
-import sys
+
 import numpy as np
+import torch
+import torch.nn.functional as F
+import torch.optim as optim
+
+from .oracle_network import OracleNetwork
+from .replay_memory import ReplayMemory, Transition, StateAction
+from .rung_network import RungNetwork
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
@@ -25,11 +23,10 @@ TARGET_UPDATE = 1000
 MIN_BUFFER_SIZE = 1000
 RUNG_BATCH_SIZE = 64
 NUM_ACTIONS = 13
-INPUTS = 1037 
+INPUTS = 1037
 LEARNING_STARTS = 1000
 MODEL_PATH = os.getcwd() + "/models/oracle/"
 LR = 1e-4
-
 
 
 class Oracle:
@@ -46,7 +43,7 @@ class Oracle:
         self.policy_net = OracleNetwork(INPUTS, NUM_ACTIONS).to(device)
         self.target_net = OracleNetwork(INPUTS, NUM_ACTIONS).to(device).eval()
         self.rung_net = RungNetwork(344, 4).to(device)
-        self.rung_optimizer = optim.Adam(self.rung_net.parameters(),lr=1e-4)
+        self.rung_optimizer = optim.Adam(self.rung_net.parameters(), lr=1e-4)
         self.rung_memory = ReplayMemory(100000)
         # self.average_policy = DQNNetwork(INPUTS, NUM_ACTIONS).to(device)
         # self.policy_optimizer = optim.RMSprop(self.average_policy.parameters())
@@ -87,7 +84,7 @@ class Oracle:
     def select_action(self, state, action_mask, player):
         sample = random.random()
         # eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-                        # math.exp(-1. * self.steps_done[player] / EPS_DECAY)
+        # math.exp(-1. * self.steps_done[player] / EPS_DECAY)
         eps_threshold = self.get_eps(player)
         # eps_threshold = ((EPS_END) + (EPS_START - EPS_END)) / (self.steps_done[player] / EPS_DECAY)
         self.steps_done[player] += 1
@@ -129,7 +126,7 @@ class Oracle:
         self.last_actions[player] = self.select_action(state, action_mask, player)
 
         return self.last_actions[player]
-    
+
     def create_action_mask_tensor(self, mask):
         return torch.tensor([[0 if m == 1 else float("-inf") for m in mask]], device=device)
 
@@ -152,8 +149,8 @@ class Oracle:
 
     def optimize_rung_network(self):
         if self.get_eps() > 0.1:
-            return # do not train the rung network when the agent is doing random shit
-        
+            return  # do not train the rung network when the agent is doing random shit
+
         if not self.train or len(self.rung_memory) < self.RUNG_BATCH_SIZE:
             return 0
 
@@ -193,7 +190,6 @@ class Oracle:
         #     param.grad.data.clamp_(-10, 10)
         self.policy_optimizer.step()
         return loss.item()
-
 
     def optimize_model(self):
         if not self.train:
@@ -236,7 +232,7 @@ class Oracle:
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
         # print(state_action_values)
         # Compute V(s_{t+1}) for all next states.
-        best_actions = self.policy_net(non_final_next_states) + action_masks # filter out invalid actions
+        best_actions = self.policy_net(non_final_next_states) + action_masks  # filter out invalid actions
         # print(best_actions)
         best_actions = best_actions.max(1)[1].unsqueeze(1)
         # Expected values of actions for non_final_next_states are computed based

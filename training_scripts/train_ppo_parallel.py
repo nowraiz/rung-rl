@@ -1,20 +1,14 @@
-from random import Random
-from rung_rl.agents.ppo.ppo_algo import PPO
-from torch.multiprocessing import Pipe, Queue
-from rung_rl.agents.a2c.a2c_agent import A2CAgent
-from rung_rl.agents.ppo.ppo_agent import PPOAgent, PPOPlayer
-from rung_rl.agents.dqn.dqn_agent import DQNAgent
-from rung_rl.agents.human_agent import HumanAgent
+import torch
+from torch.multiprocessing import Pipe
+from torch.utils.tensorboard import SummaryWriter
+
+from rung_rl.agents.ppo.ppo_agent import PPOAgent
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.env import RungEnv
 from rung_rl.rung import Game
-import rung_rl.plotter as plt
-import torch
-import numpy as np
-import time
-from torch.utils.tensorboard import SummaryWriter, writer
+
 torch.multiprocessing.set_sharing_strategy('file_system')
-PROCESSES = 12 
+PROCESSES = 12
 CONCURRENT_GAMES = PROCESSES * 8
 
 
@@ -135,11 +129,12 @@ def train_ppo(num_games, debug=False):
         total_games += games
         print(f'Total games: {total_games}')
         print(len(state_batch), len(action_batch), len(log_prob_batch), len(reward_batch))
-        action_loss, value_loss, entropy = agent.optimize_model_directly(state_batch, action_batch, log_prob_batch, reward_batch, len(state_batch))
+        action_loss, value_loss, entropy = agent.optimize_model_directly(state_batch, action_batch, log_prob_batch,
+                                                                         reward_batch, len(state_batch))
         it += 1
         summary_writer.add_scalar("Loss/Action", action_loss, total_games)
         summary_writer.add_scalar("Loss/Value", value_loss, total_games)
-        summary_writer.add_scalar("Entropy", entropy, total_games) 
+        summary_writer.add_scalar("Entropy", entropy, total_games)
 
         state_batch = []
         action_batch = []
@@ -156,7 +151,6 @@ def train_ppo(num_games, debug=False):
             ]
 
             win_rate_self, _ = evaluate(500, temp_players, 1)
-
 
             win_rate_radiant.append(win_rate_self)
             players = [agent.get_player(False), RandomAgent(), agent.get_player(False), RandomAgent()]

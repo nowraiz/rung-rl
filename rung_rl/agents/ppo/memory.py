@@ -1,9 +1,8 @@
-from collections import namedtuple
 import random
+from collections import namedtuple
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'reward', 'log_prob'))
-
 
 """
 This class provides a replay buffer to store finite state transition tuples
@@ -21,7 +20,7 @@ class Memory(object):
         """Saves a transition."""
         self.memory.append(Transition(*args))
         # if len(self.memory) < self.capacity:
-            # self.memory.append(None)
+        # self.memory.append(None)
         # self.memory[self.position] = Transition(*args)
         # self.position = (self.position + 1) % self.capacity
 

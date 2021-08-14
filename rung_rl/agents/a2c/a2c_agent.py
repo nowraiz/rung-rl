@@ -1,16 +1,13 @@
 import os
+import random
 
 import torch
-import random
-import math
 import torch.optim as optim
-import torch.nn.functional as F
-from ..dqn.dqn_network import DQNNetwork
+
 from .a2c_network import A2CNetwork
+
 # from .rung_network import RungNetwork
 # from .replay_memory import ReplayMemory, Transition, ActionMemory, StateAction
-from ...obs import Observation
-import sys
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
@@ -31,7 +28,6 @@ MODEL_PATH = os.getcwd() + "/models/a2c"
 LR = 5e-5
 
 
-
 class A2CAgent:
     def __init__(self, train=True):
         # self.BATCH_SIZE = BATCH_SIZE
@@ -42,13 +38,13 @@ class A2CAgent:
         # self.TARGET_UPDATE = TARGET_UPDATE
         # self.RUNG_BATCH_SIZE = RUNG_BATCH_SIZE
         self.num_actions = NUM_ACTIONS
-        self.steps = [0, 0, 0, 0] # the total steps taken by the agent
-        self.rewards = [[], [], [], []] # rewards acheived at each step
-        self.log_probs = [[], [], [], []] # log probs of action taken at each step
-        self.entropies = [[], [], [], []] # entropy of each distribution produced
+        self.steps = [0, 0, 0, 0]  # the total steps taken by the agent
+        self.rewards = [[], [], [], []]  # rewards acheived at each step
+        self.log_probs = [[], [], [], []]  # log probs of action taken at each step
+        self.entropies = [[], [], [], []]  # entropy of each distribution produced
         # self.actions = [] # the actions taken at each step
         # self.states = [] # the states (does not really matter)
-        self.values = [[], [], [], []] # the values predicted by the critic
+        self.values = [[], [], [], []]  # the values predicted by the critic
         self.values_tensor = [None, None, None, None]
         self.dones = [[], [], [], []]
 
@@ -80,7 +76,7 @@ class A2CAgent:
         self.load_model()
 
     def get_rung(self, state, player):
-        return torch.tensor([random.randint(0,3)]) # return a random rung for now
+        return torch.tensor([random.randint(0, 3)])  # return a random rung for now
         # state = self.get_rung_obs(state)
         # self.rung_state[player] = state
         # self.rung_selected[player] = self.select_rung(self.rung_state[player])
@@ -122,7 +118,7 @@ class A2CAgent:
 
     def get_value(self, state):
         out = self.critic(state)
-        return out.view(1,1)
+        return out.view(1, 1)
 
     def get_move(self, state):
         player = state.player_id
@@ -139,7 +135,7 @@ class A2CAgent:
         # self.last_actions[player] = self.select_action(state, action_mask, player)
 
         return action
-    
+
     def create_action_mask_tensor(self, mask):
         return torch.tensor([[0 if m else -1e8 for m in mask]], dtype=torch.float, device=device)
 
@@ -149,12 +145,12 @@ class A2CAgent:
 
     def calculate_returns(self, player):
         # if len(self.rewards[player]) == 1:
-            # 1 step a2c
-            # future_returns = 
+        # 1 step a2c
+        # future_returns =
         # print(self.rewards[player])
         returns = 0
-        for i in range(len(self.rewards[player])-1, -1, -1):
-            returns = self.rewards[player][i] + GAMMA*returns*self.dones[player][i]
+        for i in range(len(self.rewards[player]) - 1, -1, -1):
+            returns = self.rewards[player][i] + GAMMA * returns * self.dones[player][i]
             self.rewards[player][i] = returns
 
     def optimize_model(self):
@@ -172,13 +168,12 @@ class A2CAgent:
             # loss_critic += self.optimize_critic(player)
         # loss_actor /= 4
         # loss_critic /= 4
-        
+
         for param in self.actor_critic.parameters():
             param.grad.data.clamp_(-0.5, 0.5)
         # for param in self.critic.parameters():
-            # param.grad.data.clamp_(-0.5, 0.5)
+        # param.grad.data.clamp_(-0.5, 0.5)
 
-        
         self.actor_optimizer.step()
         # self.critic_optimizer.step()
         self.actor_optimizer.zero_grad()
@@ -187,7 +182,6 @@ class A2CAgent:
         print("Loss: {:.5f}".format(loss_actor_critic), end=" - ")
 
         self.clear_trajectory()
-        
 
     def optimize_actor_critic(self, player):
         # print(self.log_probs)
@@ -197,11 +191,11 @@ class A2CAgent:
         # print(self.log_probs)
         # print(log_probs)
         # print(advantages)
-        actor_loss = (-1 * log_probs)*advantages
+        actor_loss = (-1 * log_probs) * advantages
         # print(actor_loss)
         # print()
         # print(actor_loss)
-        actor_loss_mean = torch.mean(actor_loss) / 4 # averaging across 4 workers (players)
+        actor_loss_mean = torch.mean(actor_loss) / 4  # averaging across 4 workers (players)
         critic_loss = torch.mean(torch.square(advantages)) / 4
         loss = actor_loss_mean + critic_loss
         # print(actor_loss_mean)
@@ -235,7 +229,6 @@ class A2CAgent:
         self.values = [[], [], [], []]
         self.dones = [[], [], [], []]
         self.values_tensor = [None, None, None, None]
-        
 
     def end(self, win, player):
         self.wins[player] += win

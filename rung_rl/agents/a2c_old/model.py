@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 from rung_rl.utils import init
-from .distributions import Bernoulli, Categorical, DiagGaussian
+from .distributions import Categorical
 
 
 class Flatten(nn.Module):

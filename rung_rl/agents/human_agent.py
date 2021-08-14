@@ -1,7 +1,8 @@
-import random
-from .abstract_agent import Agent
-from rung_rl.deck import Suit
 import torch
+
+from rung_rl.deck import Suit
+from .abstract_agent import Agent
+
 
 class HumanAgent(Agent):
     def __init__(self, id):
@@ -32,7 +33,7 @@ class HumanAgent(Agent):
         while move < 1 or move > 4:
             print("Invalid move")
             move = int(input("Select Rung: "))
-        return torch.tensor([[move-1]], dtype=torch.long)
+        return torch.tensor([[move - 1]], dtype=torch.long)
 
     def end(self, win, i):
         if win:

@@ -1,14 +1,11 @@
+import torch
+
+import rung_rl.plotter as plt
 from rung_rl.agents.a2c.a2c_agent import A2CAgent
 from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.rung import Game
-import rung_rl.plotter as plt
-import torch
-import torch.multiprocessing as mp
-import statistics
-import numpy as np
-from multiprocessing import Process
 
 torch.set_num_threads(12)
 
@@ -103,8 +100,6 @@ def train_a2c(num_games, debug=False):
 
         # agent.clear_trajectory()
 
-
-
         if i % 100 == 0:
             print("Total Games: {}".format(i))
         # if i % 250 == 0 and i != 0:
@@ -124,8 +119,8 @@ def train_a2c(num_games, debug=False):
         if i % 5000 == 0 and i != 0:
             temp_players_radiant = [players[0], RandomAgent(), players[2], RandomAgent()]
             temp_players_dire = [dqn_agent, players[1], dqn_agent, players[3]]
-        #     # for player in players:
-        #     #     player.eval = True
+            #     # for player in players:
+            #     #     player.eval = True
             win_rate_r = evaluate(100, temp_players_radiant, 0)
             win_rate_d = evaluate(100, temp_players_dire, 1)
             games.append(i)
@@ -141,7 +136,7 @@ def train_a2c(num_games, debug=False):
     plt.savefig()
     players[0].save_model("final")
     print("Steps done: {}".format(players[0].steps))
-    
+
 
 def test():
     agent = DQNAgent()
@@ -178,7 +173,7 @@ if __name__ == "__main__":
     # test()
     agent = A2CAgent()
     agent.load_model("final")
-    agent.eval =True
+    agent.eval = True
     # agent.deterministic = True
     players = [agent, RandomAgent(), agent, RandomAgent()]
     evaluate(10000, players, 0, False)
