@@ -15,10 +15,9 @@ to make it easy for the game to played by using this class. The only thing requi
 for the game is the initial parameters of the model of the agent.
 """
 class RungEnv(Process):
-    def __init__(self, pipe, queue) -> None:
+    def __init__(self, pipe) -> None:
         super(RungEnv, self).__init__()
         self.pipe: Pipe = pipe
-        self.queue: Queue = queue
         self.actor = None
         self.critic = None
         self.game = None
@@ -29,9 +28,16 @@ class RungEnv(Process):
         Gets the parameters of the latest model from the parent process and loads
         them into the agent
         """
-        self.actor = self.queue.get() 
-        self.critic = self.queue.get()
+        # print("COMGIN ACTOR")
+        # self.actor = self.queue.get() 
+        self.actor = self.pipe.recv()
+        # print("COMING CITIC")
+        # self.critic = self.queue.get()
+        self.critic = self.pipe.recv()
+        # self.actor = self.pipe.recv()
+        # self.critic = self.pipe.recv()
         self.agent.load_params(self.actor, self.critic)
+        # print("LOADED")
         
     def prepare_game(self):
         """
@@ -50,17 +56,20 @@ class RungEnv(Process):
 
         while True:
             msg = self.pipe.recv()
+            # print(msg)
             if msg == "REFRESH":
                 # print("Getting new parameters and starting a new game: ")
                 self.get_params()
+                # print("GOT Params")
                 continue
             elif msg == "RESET":
                 # print("Starting a new game: ")
                 pass
             elif msg == "TERMINATE":
-                # print("Terminate the environment instance")
+                print("Terminate the environment instance")
                 break
 
+            # print("Preparing")
             self.prepare_game()
             self.game.initialize()
             self.game.play_game()
@@ -73,12 +82,12 @@ class RungEnv(Process):
         # print("Game ended")
         self.pipe.send("END")
         # self.pipe.send("STATE")
-        self.queue.put(self.agent.state_batch)
+        self.pipe.send(self.agent.state_batch)
         # self.pipe.send("ACTION")
-        self.queue.put(self.agent.action_batch)
+        self.pipe.send(self.agent.action_batch)
         # self.pipe.send("REWARD")
-        self.queue.put(self.agent.reward_batch)
+        self.pipe.send(self.agent.reward_batch)
         # self.pipe.send("LOGPROBS")
-        self.queue.put(self.agent.log_probs_batch)
+        self.pipe.send(self.agent.log_probs_batch)
         self.agent.clear_experience()
         pass

@@ -28,6 +28,7 @@ class Game():
         self.cost = [0, 0, 0, 0] # the cost of the card played in the hand by each player
         self.hand_player = [None, None, None, None]  # the index of the player who played this card on the hand
         self.current_player = None  # the index of the player whose turn it is
+        self.hand_started_by = None # the person who started the hand
         self.scores = [0 for _ in range(4)]  # the scores for the teams
         self.player_cards = [[None for _ in range(13)] for _ in range(4)]
         self.players = players
@@ -128,6 +129,7 @@ class Game():
         assert (not self.done)
         self.DEBUG("Starting hand", self.hands + 1)
         player_idx = [None, None, None, None]
+        self.hand_started_by = self.current_player
         for i in range(4):
             if self.hand_idx == 0:
                 highest = None
@@ -203,22 +205,31 @@ class Game():
                 # reward = 1 # binary reward
                 # reward = 1
                 self.DEBUG("WINNER: ", winner1, winner2)
-            for i, player in enumerate(self.players):
+            # IMPORTANT: Rewards players in the order that they played
+            i = self.hand_started_by
+            c = 0
+            while c < 4:
+                player = self.players[i]
                 if i == winner1 or i == winner2:
                     player.reward(reward-self.cost[i], i, self.done)
                 else:
                     player.reward(-reward-self.cost[i], i, self.done)
-                    # if self.done:
-                        # player.reward(-reward, i, self.done)
-                    # else:
-                        # player.reward(0, i, self.done)
+                c += 1
+                i = self.next_player(i)
             self.stack = 0
 
         else:
-            for i, player in enumerate(self.players):
+            # important: reward players in the order that they played because of
+            # synchronization in multiprocessing
+            i = self.hand_started_by
+            c = 0
+            while c < 4:
+                player = self.players[i]
                 # the reward is just the cost of the cards played
                 # by each player
                 player.reward(-self.cost[i], i)
+                c += 1
+                i = self.next_player(i)
         self.last_dominant = self.dominant
         self.dominant = dominant
         # clear the hand and set the new next player

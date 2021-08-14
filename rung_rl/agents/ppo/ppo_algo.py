@@ -18,7 +18,7 @@ class PPO():
                  entropy_coef=0.01,
                  max_grad_norm=0.5,
                  eps=None,
-                 use_gae=True,
+                 use_gae=False,
                  use_clipped_value_loss=False):
 
         self.actor = actor

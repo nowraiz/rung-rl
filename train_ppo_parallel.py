@@ -10,15 +10,11 @@ from rung_rl.env import RungEnv
 from rung_rl.rung import Game
 import rung_rl.plotter as plt
 import torch
-# import torch.multiprocessing as mp
-import statistics
 import numpy as np
 import time
-# from multiprocessing import Pool
-# import multiprocessing as mp
-import torch.multiprocessing as mp
-
-PROCESSES = 4 
+from torch.utils.tensorboard import SummaryWriter, writer
+torch.multiprocessing.set_sharing_strategy('file_system')
+PROCESSES = 12 
 CONCURRENT_GAMES = PROCESSES * 8
 
 
@@ -47,23 +43,19 @@ def strategy_collapse(agent, weak_agent, num_games):
     agent.save_model("weak")
 
 
-def train_a2c(num_games, debug=False):
+def train_ppo(num_games, debug=False):
     agent = PPOAgent()
+    agent.load_model("final")
+    agent.save_model("final")
     weak_agent = PPOAgent()
-    agent.save_model("weak")
-    dqn_agent = DQNAgent(True)
-    dqn_agent.eval = True
-    # players = [agent, agent, agent, agent]
+    summary_writer = SummaryWriter()
+    it = 0
+    # dqn_agent = DQNAgent(True)
+    # dqn_agent.eval = True
     win_rate_radiant = []
     games_list = []
     win_rate_dire = []
     games = []
-    rewards = []
-    wins = 0
-    win_rate = []
-    avg_rewards_r = []
-    avg_rewards_d = []
-    then = time.time()
     processes = []
     pipes = []
     queues = []
@@ -74,12 +66,10 @@ def train_a2c(num_games, debug=False):
     batch_size = 0
     # pipe is (input, output)
     for i in range(PROCESSES):
-        queue = Queue()
         (conn1, conn2) = Pipe()
-        p = RungEnv(conn2, queue)
+        p = RungEnv(conn2)
         processes.append(p)
         pipes.append(conn1)
-        queues.append(queue)
         p.start()
 
     # start the games
@@ -93,10 +83,9 @@ def train_a2c(num_games, debug=False):
         # send the newest parameters:
         for i, p in enumerate(processes):
             pipe = pipes[i]
-            q = queues[i]
             pipe.send("REFRESH")
-            q.put(agent.actor.state_dict())
-            q.put(agent.critic.state_dict())
+            pipe.send(agent.actor.state_dict())
+            pipe.send(agent.critic.state_dict())
             pipe.send("RESET")
             running[i] = True
             games += 1
@@ -106,14 +95,13 @@ def train_a2c(num_games, debug=False):
                 pipe = pipes[i]
                 if running[i]:
                     if (pipe.poll()):
-                        q = queues[i]
                         # game finished
                         msg = pipe.recv()
                         assert msg == "END"
-                        state_game_batch = q.get()
-                        action_game_batch = q.get()
-                        reward_game_batch = q.get()
-                        log_prob_game_batch = q.get()
+                        state_game_batch = pipe.recv()
+                        action_game_batch = pipe.recv()
+                        reward_game_batch = pipe.recv()
+                        log_prob_game_batch = pipe.recv()
                         state_batch += state_game_batch
                         action_batch += action_game_batch
                         reward_batch += reward_game_batch
@@ -130,14 +118,13 @@ def train_a2c(num_games, debug=False):
                 pipe = pipes[i]
                 if running[i]:
                     if (pipe.poll()):
-                        q = queues[i]
                         # game finished
                         msg = pipe.recv()
                         assert msg == "END"
-                        state_game_batch = q.get()
-                        action_game_batch = q.get()
-                        reward_game_batch = q.get()
-                        log_prob_game_batch = q.get()
+                        state_game_batch = pipe.recv()
+                        action_game_batch = pipe.recv()
+                        reward_game_batch = pipe.recv()
+                        log_prob_game_batch = pipe.recv()
                         state_batch += state_game_batch
                         action_batch += action_game_batch
                         reward_batch += reward_game_batch
@@ -147,43 +134,43 @@ def train_a2c(num_games, debug=False):
 
         total_games += games
         print(f'Total games: {total_games}')
-        agent.optimize_model_directly(state_batch, action_batch, log_prob_batch, reward_batch, len(state_batch))
+        print(len(state_batch), len(action_batch), len(log_prob_batch), len(reward_batch))
+        action_loss, value_loss, entropy = agent.optimize_model_directly(state_batch, action_batch, log_prob_batch, reward_batch, len(state_batch))
+        it += 1
+        summary_writer.add_scalar("Loss/Action", action_loss, total_games)
+        summary_writer.add_scalar("Loss/Value", value_loss, total_games)
+        summary_writer.add_scalar("Entropy", entropy, total_games) 
 
         state_batch = []
         action_batch = []
         log_prob_batch = []
         reward_batch = []
 
-        if (total_games % 5040) == 0:
-            players = [agent.get_player(False), RandomAgent(), agent.get_player(False), RandomAgent()]
-            win_rate_r, _ = evaluate(100, players, 0, False)
+        if (total_games % (CONCURRENT_GAMES * 50)) == 0:
+            weak_agent.load_model("final")
+            temp_players = [
+                weak_agent.get_player(False),
+                agent.get_player(False),
+                weak_agent.get_player(False),
+                agent.get_player(False)
+            ]
 
-            games_list.append(total_games)
-            win_rate_radiant.append(win_rate_r)
-            plt.plot(games_list, win_rate_radiant, None)
+            win_rate_self, _ = evaluate(500, temp_players, 1)
+
+
+            win_rate_radiant.append(win_rate_self)
+            players = [agent.get_player(False), RandomAgent(), agent.get_player(False), RandomAgent()]
+            win_rate_d, _ = evaluate(500, players, 0, False)
+
+            # games_list.append(total_games)
+            # win_rate_dire.append(win_rate_d)
+            # plt.plot(games_list, win_rate_radiant, win_rate_dire)
+            # plt.savefig()
+
+            summary_writer.add_scalar("WinRate/Self", win_rate_self, total_games)
+            summary_writer.add_scalar("WinRate/Random", win_rate_d, total_games)
             agent.clear_experience()
             agent.save_model("final")
-        # if (i % (CONCURRENT_GAMES * 80) == 0 and i != 0):
-        #     #
-        #     weak_agent.load_model("weak")
-        #     temp_players = [
-        #         weak_agent.get_player(False),
-        #         agent.get_player(False),
-        #         weak_agent.get_player(False),
-        #         agent.get_player(False)
-        #     ]
-        #     win_rate_self, reward_self = evaluate(100, temp_players, 1)
-        #     games.append(i/CONCURRENT_GAMES)
-        #     win_rate_radiant.append(win_rate_self/100)
-        #     avg_rewards_r.append(reward_self)
-        #     plt.plot_reward(games, win_rate_radiant, avg_rewards_r)
-        #     plt.savefig()
-        #     agent.clear_experience()
-        #     # strategy collapse
-        #     strategy_collapse(agent, weak_agent, CONCURRENT_GAMES*20)
-
-
-        # if i % (CONCURRENT_GAMES * 4) == 0:
 
     # plt.savefig()
     agent.save_model("final")
@@ -211,19 +198,13 @@ def evaluate(num_games, players, idx=0, debug=False):
 
 def main():
     # mp.set_start_method('spawn')
-    # train_a2c(10000000)
+    train_ppo(10000000)
     # test()
     agent = PPOAgent(False)
-    # agent.load_model("final")
-    # agent.eval =True
-    # agent.deterministic = True
     players = [agent.get_player(False), RandomAgent(), agent.get_player(False), RandomAgent()]
     evaluate(1000, players, 0, False)
-    # players = [agent.get_player(False), dqn_agent, agent.get_player(False), dqn_agent]
-    # print("Vs DQN")
-    # evaluate(1000, players, 0, False)
-    # # players = [RandomAgent(0), agent, RandomAgent(2), agent]
 
 
 if __name__ == "__main__":
+    torch.set_num_threads(1)
     main()

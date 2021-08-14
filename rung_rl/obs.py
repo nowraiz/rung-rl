@@ -68,6 +68,10 @@ class Observation:
             self.build_rung_vector_v2()
         return self.rung_vector
 
+    def build_rung_raw(self):
+        self.rung_vector = [0 for _ in range(1486)]
+        self.rung_vector[0:221] = flatten([self.embed_card(card) for card in self.cards[self.id]])
+        return self.rung_vector
     def build_rung_vector_v1(self):
         """
         Builds the rung observation vector from the initial data points

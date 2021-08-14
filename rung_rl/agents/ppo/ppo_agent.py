@@ -12,8 +12,8 @@ from .ppo_network import PPONetwork
 # from .rung_network import RungNetwork
 # from .replay_memory import ReplayMemory, Transition, ActionMemory, StateAction
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = torch.device("cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 # gpu = torch.device("cuda")
 
 # BATCH_SIZE = 64
@@ -27,7 +27,7 @@ CRITIC_SIZE = 256
 # TARGET_UPDATE = 1000
 # MIN_BUFFER_SIZE = 1000
 # RUNG_BATCH_SIZE = 64
-GAE = False
+GAE = False 
 GAE_LAMBDA = 0.95
 NUM_ACTIONS = 13 + 4
 INPUTS = 1486
@@ -49,7 +49,6 @@ class PPOAgent:
         self.name = "ppo"
         self.actor = PPONetwork(INPUTS, ACTOR_SIZE, NUM_ACTIONS).to(device)
         self.critic = PPONetwork(INPUTS, CRITIC_SIZE, 1).to(device)
-        # self.actor_critic.share_memory()
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=LR)
         self.critic_optmizer = optim.Adam(self.critic.parameters(), lr=LR)
         self.ppo = PPO(self.actor, self.critic, self.actor_optimizer, self.critic_optmizer)
@@ -60,7 +59,7 @@ class PPOAgent:
         self.log_probs_batch = []
         self.batch_size = 0
         self.train = train
-        self.load_model()
+        # self.load_model()
 
     def get_player(self, train=True):
         """
@@ -81,7 +80,7 @@ class PPOAgent:
 
         for player in self.players:
             self.batch_size += len(player.states)
-        # we now have batch size
+        # we now have batch size, create the batch upfront for performance efficiency
         self.state_batch = [None for _ in range(self.batch_size)]
         i = 0
         for player in self.players:
@@ -128,6 +127,7 @@ class PPOAgent:
                                                         batch_size)
 
         print("Action: {}, Value: {}, Entropy: {}".format(action, value, entropy))
+        return action, value, entropy
 
     def optimize_model(self):
         if not self.train or self.batch_size < 1:
@@ -145,21 +145,23 @@ class PPOAgent:
         self.clear_experience()
 
     def save_model(self, i="final"):
+        """
+        Saves the current parameters of the model at the model path with the given
+        version string
+        """
         torch.save(self.actor.state_dict(), self.model_path(f'{self.name}_actor', i))
         torch.save(self.critic.state_dict(), self.model_path(f'{self.name}_critic', i))
-        # torch.save(self.critic.state_dict(), self.model_path("critic"))
-        # torch.save(self.average_policy.state_dict(), self.average_model_path(i))
 
     def load_model(self, i="final"):
+        """
+        Tries to load the model parameters from the model path with the given
+        version string. Exits silenty if the exact model file is not found
+        """
         try:
             state_dict = torch.load(self.model_path(f'{self.name}_actor'))
-            # self.policy_net.load_state_dict(state_dict)
             self.actor.load_state_dict(state_dict)
             state_dict = torch.load(self.model_path(f'{self.name}_critic'))
             self.critic.load_state_dict(state_dict)
-            # self.critic.load_state_dict(state_dict)
-            # state_dict = torch.load(self.average_model_path(i))
-            # self.average_policy.load_state_dict(state_dict)
         except FileNotFoundError:
             print("File not found. Creating a new network...")
 
@@ -199,6 +201,20 @@ class PPOPlayer:
         # self.rung_state[player] = state
         # self.rung_selected[player] = self.select_rung(self.rung_state[player])
         # return self.rung_selected[player]
+        action_mask = state.get_action_mask()
+        state = self.get_rung_obs(state)
+        action, log_prob, value = self.select_action(state, action_mask)
+        if self.train:
+            self.states.append(state)
+            self.log_probs.append(log_prob)
+            self.actions.append(action)
+            self.values.append(value)
+        self.steps += 1
+        return action-13
+
+    def get_rung_obs(self, state):
+        obs = state.get_obs()
+        return torch.tensor([obs.get_rung_raw()], dtype=torch.float, device=device)
 
     def select_action(self, state, action_mask):
         raw_probs, value = None, None
@@ -224,7 +240,7 @@ class PPOPlayer:
         # print(action_mask)
         # print(log_probs)
         # return sm(probs).max(1)[1], dist.log_prob(action), value
-        return action, dist.log_prob(action), value
+        return action, dist.log_prob(action), value, state
 
     def reward(self, r, player, done=False):
         # self.last_rewards[player] = torch.tensor([[r]], dtype=torch.float).to(device)
@@ -242,7 +258,7 @@ class PPOPlayer:
         action_mask = state.get_action_mask()
         state = self.get_obs(state)
         # value = self.get_value(state)
-        action, log_prob, value = self.select_action(state, action_mask)
+        action, log_prob, value, _ = self.select_action(state, action_mask)
         if self.train:
             self.states.append(state)
             self.log_probs.append(log_prob)
@@ -276,20 +292,6 @@ class PPOPlayer:
                 returns = self.rewards[i] + GAMMA * returns
                 self.returns[i] = returns
 
-    # def append_transition_batch(self):
-    #     """
-    #     After a game is finished, poll the individual player transitions to 
-    #     create a single transition batch for training in the future
-    #     """
-    #     if not self.train:
-    #         return
-    #     for player in range(4):
-    #         self.calculate_returns(player) # calculate the returns of the player 
-    #         self.all_states.extend(self.states[player])
-    #         self.all_actions.extend(self.actions[player])
-    #         self.all_log_probs.extend(self.log_probs[player])
-    #         self.all_rewards.extend(self.rewards[player])
-
 
     def clear(self):
         """
@@ -304,20 +306,13 @@ class PPOPlayer:
         self.rewards = []
 
     def end(self, win, player):
+        """
+        This function is called to signal that the game has ended with the information indicating
+        if you have won the game or not
+        """
         self.wins += win
         if self.train:
             self.calculate_returns()
-        # self.total_reward = [0, 0, 0, 0]
-        # self.memory.push(self.last_state, self.last_action, None, self.last_reward)
-        # self.last_game_reward = self.game_reward
-        # self.game_reward = 0
-        # self.last_state = None
-        # self.last_action = None
-        # self.last_reward = None
-        # self.cards_seen = [None for _ in range(52)]
-        # self.cards_seen_index = 0
-        # do nothing at the end of the game
-        pass
 
     def reset(self, player):
         wins = self.wins
