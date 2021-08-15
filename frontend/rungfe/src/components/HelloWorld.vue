@@ -55,4 +55,7 @@ li {
 a {
   color: #42b983;
 }
+img {
+    height: 100px 100px 100px;
+}
 </style>
