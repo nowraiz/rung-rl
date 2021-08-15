@@ -8,7 +8,7 @@
     :height="height"
     :width="width"
   /> -->
-  <CardStack />
+  <CardStack :height="height" :width="width" position="left" />
 </template>
 
 <script>
@@ -33,6 +33,7 @@ export default {
       width: "120",
       suite: "diamond",
       card: "3",
+      pos: "left",
     };
   },
 };
