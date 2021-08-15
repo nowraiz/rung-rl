@@ -1,6 +1,6 @@
 <template>
-  <div class="row">
-    <div v-for="card in cards" :key="card.name">
+  <div :class="classObjectUpper">
+    <div v-for="(card, idx) in cards" :key="idx" :class="classObject">
       <p>CARD: {{ card.name }}</p>
       <Card
         :alt="alt"
@@ -18,11 +18,17 @@ import Card from "./Card.vue";
 
 export default {
   components: { Card },
+  props: {
+    position: String,
+    height: String,
+    width: String,
+  },
   data: () => {
     return {
       height: "100",
       width: "100",
-      alt: "asdfasdf",
+      alt: "some alt",
+      // position: "left", // up, down, left, right
       cards: [
         {
           name: "club",
@@ -38,6 +44,32 @@ export default {
         },
       ],
     };
+  },
+  computed: {
+    classObjectUpper: function () {
+      if (this.position === "left" || this.position === "right") {
+        return {
+          "col-2": true,
+        };
+      } else {
+        return {
+          row: true,
+        };
+      }
+    },
+    classObject: function () {
+      if (this.position === "left" || this.position === "right") {
+        return {
+          row: true,
+          col: false,
+        };
+      } else {
+        return {
+          row: false,
+          col: true,
+        };
+      }
+    },
   },
 };
 </script>
