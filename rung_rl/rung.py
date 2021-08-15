@@ -1,12 +1,14 @@
 import random
 
 from rung_rl.deck import Deck, Card
-from rung_rl.deck import Suit
+from rung_rl.deck import Suit, Face
 from rung_rl.state import State
 
 NUM_PLAYERS = 4  # the number of players is fixed for RUNG i.e. 4
 NUM_TEAMS = 2  # the number of teams is fixed for RUNG i.e. 2
 REWARD_SCALE = 56
+ACE_RULE = False  # if the round can be won by an Ace or not
+BINARY_REWARDS = False  # if the reward system should be binary or not
 
 
 class Game():
@@ -189,7 +191,8 @@ class Game():
         highest_card = self.hand[idx]
         dominant = player_idx[idx]  # get the player who played the highest card
         # ADDED ACE RULE TO SEE WHAT CHANGES
-        if self.hands == 13 or ((dominant == self.dominant and self.hands > 2)):
+        if self.hands == 13 or ((dominant == self.dominant and self.hands > 2) and
+                                (not (not ACE_RULE and highest_card.face == Face.ACE))):
             winner1 = dominant
             winner2 = (dominant + 2) % 4
             reward = self.stack / REWARD_SCALE
@@ -210,9 +213,15 @@ class Game():
             while c < 4:
                 player = self.players[i]
                 if i == winner1 or i == winner2:
-                    player.reward(reward - self.cost[i], i, self.done)
+                    r = reward - self.cost[i]
+                    if BINARY_REWARDS:
+                        r = +1
+                    player.reward(r, i, self.done)
                 else:
-                    player.reward(-reward - self.cost[i], i, self.done)
+                    r = -reward - self.cost[i]
+                    if BINARY_REWARDS:
+                        r = -1
+                    player.reward(r, i, self.done)
                 c += 1
                 i = self.next_player(i)
             self.stack = 0
@@ -226,7 +235,10 @@ class Game():
                 player = self.players[i]
                 # the reward is just the cost of the cards played
                 # by each player
-                player.reward(-self.cost[i], i)
+                r = -self.cost[i]
+                if BINARY_REWARDS:
+                    r = 0
+                player.reward(r, i)
                 c += 1
                 i = self.next_player(i)
         self.last_dominant = self.dominant

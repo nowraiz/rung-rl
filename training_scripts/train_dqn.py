@@ -98,3 +98,12 @@ def evaluate(num_games, players, idx=0, debug=False):
 
 if __name__ == "__main__":
     train_dqn(1)
+    agent = DQNAgent(False, True)
+    agent.load_model("final")
+    shaped_agent = DQNAgent(False, True)
+    shaped_agent.load_model_from_path("../saved_models/dqn_best_recurrent_2/model_dqn_final")
+    shaped_agent.eval = True
+    agent.eval = True
+    players = [agent, shaped_agent, agent, shaped_agent]
+    # players = [shaped_agent, RandomAgent(), shaped_agent, RandomAgent()]
+    evaluate(3000, players, 1, False)
