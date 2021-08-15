@@ -17,7 +17,8 @@ class Game():
     an invalid state)
     """
 
-    def __init__(self, players, render=False, debug=False):
+    def __init__(self, players, render=False, debug=False, sync=True):
+        self.sync = sync  # if the game should run in synchronous mode or an asynchronous mode.
         self.hand_idx = 0  # the index of the next hand
         self.hands = 0  # the number of hands played
         self.stack = 0  # the number of hands stacked right now
@@ -42,6 +43,8 @@ class Game():
         self.cards_played = [None for _ in range(52)]  # the cards played till now
         self.cards_played_by = [None for _ in range(52)]  # which player played the card
         self.cards_played_idx = 0
+        self.current_state = None  # the current complete state of the game
+        self.player_idx = [None, None, None, None]
 
     def sort_all_cards(self):
         for i in range(4):
@@ -95,24 +98,17 @@ class Game():
         self.DEBUG(str(self.player_cards[toss]))
         move = winner.get_rung(State(self.player_cards, toss, action_mask=self.rung_action_mask()), toss)
         move = move.item()
-        assert move >= 0 and move <= 3
+        assert 0 <= move <= 3
         self.rung = suits[move]
         self.current_player = toss  # the player who selects rung starts the game
         self.DEBUG("Rung: {}, Selected By: {}".format(str(self.rung), toss))
-        # player = self.players[self.current_player]
-        # move = player.get_move(self.player_cards[self.current_player], self.hand, self.stack, self.rung.value if self.rung else 0, self.hands, self.action_mask(self.current_player))
-        # while not self.valid_move(move, self.current_player):
-        # player.reward(0)
-        # move = player.get_move(self.player_cards[self.current_player], self.hand)
-        # assert(self.valid_move(move, self.current_player))
-        # card = self.peek_card(move, self.current_player)
-        # self.rung = random.choice([suit for suit in Suit])
-        # self.DEBUG("Rung : ", self.rung)
         self.populate_remaining_cards()
         self.sort_all_cards()
         assert (self.deck.length() == 0)
 
         self.dump_all_cards()
+
+        self.update_state()  # update the initial state
 
     def broadcast(self):
         """
@@ -122,74 +118,117 @@ class Game():
         for i in range(4):
             self.players[i].save_obs(self.hand)
 
+    def update_state(self):
+        """
+        Updates the current complete state of the game so that it can be continued from here
+        """
+        if self.hand_idx == 0:
+            highest = None
+            highest_card = None
+        else:
+            highest_idx = self.highest_card_index()
+            highest = self.player_idx[highest_idx]
+            highest_card = self.hand[highest_idx]
+
+        player = self.players[self.current_player]
+
+        self.current_state = State(self.player_cards, self.current_player, self.hand, self.player_idx, self.stack,
+                                   self.rung if self.rung else None, self.hands + 1, self.hand_idx,
+                                   self.dominant, self.last_hand, self.last_hand_played_by,
+                                   highest, self.last_dominant, self.cards_played,
+                                   self.cards_played_by, self.scores[self.current_player],
+                                   self.scores[self.next_player()],
+                                   highest_card, self.higher_cards(highest_card),
+                                   self.last_dominant == highest,  # if the current top card is winning round
+                                   None if self.hand_idx == 0 else self.prev_player(),
+                                   None if self.hand_idx == 3 else self.next_player(),
+                                   int(self.partner_player() in self.player_idx),
+                                   self.action_mask(self.current_player))
+
     def play_hand(self):
         """
-        Play a hand of rung. Goes around the players asking them for the moves at each turn
+        Play a hand of rung synchronously. Goes around the players asking them for the moves at each turn
         """
-        assert (not self.done)
+        assert (not self.done) and self.sync
         self.DEBUG("Starting hand", self.hands + 1)
-        player_idx = [None, None, None, None]
         self.hand_started_by = self.current_player
+        self.player_idx = [None, None, None, None]
         for i in range(4):
-            if self.hand_idx == 0:
-                highest = None
-                highest_card = None
-            else:
-                highest_idx = self.highest_card_index()
-                highest = player_idx[highest_idx]
-                highest_card = self.hand[highest_idx]
-
-            self.DEBUG("Player", self.current_player, " turn")
             player = self.players[self.current_player]
 
-            state = State(self.player_cards, self.current_player, self.hand, player_idx, self.stack,
-                          self.rung if self.rung else None, self.hands + 1, i,
-                          self.dominant, self.last_hand, self.last_hand_played_by,
-                          highest, self.last_dominant, self.cards_played,
-                          self.cards_played_by, self.scores[self.current_player],
-                          self.scores[self.next_player()],
-                          highest_card, self.higher_cards(highest_card),
-                          self.last_dominant == highest,  # if the current top card is winning round
-                          None if self.hand_idx == 0 else self.prev_player(),
-                          None if self.hand_idx == 3 else self.next_player(),
-                          int(self.partner_player() in player_idx),
-                          self.action_mask(self.current_player))
-
-            move = player.get_move(state)
+            move = player.get_move(self.current_state)
 
             move = move.item()
-            # player.reward(-0.001, True)
-            # move = player.get_move(self.player_cards[self.current_player], self.hand)
-            self.dump_cards(self.player_cards[self.current_player])
-            self.DEBUG(str(self.player_cards[self.current_player][move]))
-
-            valid = self.valid_move(move, self.current_player)
-            if not valid:
-                print(move, self.current_player, self.player_cards[self.current_player],
-                      self.action_mask(self.current_player))
-            assert valid
-            card = self.draw_card(move, self.current_player)
-            cost = self.card_cost(card)
-            self.cost[self.current_player] = cost  # the cost of the card for the player
-            self.hand[self.hand_idx] = card  # the hand index
-            player_idx[self.hand_idx] = self.current_player  # the card played index
-            # add the card to the cards seen
-            self.cards_played[self.cards_played_idx] = self.hand[self.hand_idx]
-            self.cards_played_by[self.cards_played_idx] = self.current_player
-            self.cards_played_idx += 1
-
-            # advance the hand and the player
-            self.hand_idx += 1
-            self.current_player = self.next_player()
-            self.DEBUG(self.to_string(self.hand))
-            # self.DEBUG("\n")
+            self._step_move(move)
+            self.update_state()
 
         # self.broadcast()  # broadcast the hand information to every other player
+        self.end_hand()
+        self.update_state()
+
+    def play_game(self):
+        for i in range(13):
+            if self.game_over():
+                w = self.end_game()
+                return w
+            self.play_hand()
+        return self.end_game()
+
+    def _step_move(self, move):
+        """
+        Steps the actual move. Used both in synchronous and the asynchronous version
+        """
+
+        self.dump_cards(self.player_cards[self.current_player])
+        self.DEBUG(str(self.player_cards[self.current_player][move]))
+
+        valid = self.valid_move(move, self.current_player)
+        if not valid:
+            print(move, self.current_player, self.player_cards[self.current_player],
+                  self.action_mask(self.current_player))
+        assert valid
+
+        card = self.draw_card(move, self.current_player)
+        cost = self.card_cost(card)
+        self.cost[self.current_player] = cost  # the cost of the card for the player
+        self.hand[self.hand_idx] = card  # the hand index
+        self.player_idx[self.hand_idx] = self.current_player  # the card played index
+        # add the card to the cards seen
+        self.cards_played[self.cards_played_idx] = self.hand[self.hand_idx]
+        self.cards_played_by[self.cards_played_idx] = self.current_player
+        self.cards_played_idx += 1
+
+        # advance the hand and the player
+        self.hand_idx += 1
+        self.current_player = self.next_player()
+        self.DEBUG(self.to_string(self.hand))
+
+    def step(self, player_idx, move):
+        """
+        Steps through the game asynchronously. Just changes the state of the game by one move
+        """
+        if self.sync:
+            raise RuntimeError("Step called in synchronous game mode")
+
+        if player_idx != self.current_player:
+            raise AssertionError("Step called with invalid player")
+
+        if not (type(move) == int):
+            move = move.item()
+
+        self._step_move(move)
+        if self.hand_idx > 3:
+            # the current hand ended. Time to reward and setup for new hand
+            self.end_hand()
+
+        self.update_state()
+
+    def end_hand(self):
         self.stack += 1  # increase the stack count
         self.hands += 1
         idx = self.highest_card_index()  # get the highest card index
         highest_card = self.hand[idx]
-        dominant = player_idx[idx]  # get the player who played the highest card
+        dominant = self.player_idx[idx]  # get the player who played the highest card
         # ADDED ACE RULE TO SEE WHAT CHANGES
         if self.hands == 13 or ((dominant == self.dominant and self.hands > 2) and
                                 (not (not ACE_RULE and highest_card.face == Face.ACE))):
@@ -204,48 +243,20 @@ class Game():
                 # game is done
                 self.done = True
                 reward += 43 / REWARD_SCALE
-                # reward = 1 # binary reward
                 # reward = 1
                 self.DEBUG("WINNER: ", winner1, winner2)
             # IMPORTANT: Rewards players in the order that they played
-            i = self.hand_started_by
-            c = 0
-            while c < 4:
-                player = self.players[i]
-                if i == winner1 or i == winner2:
-                    r = reward - self.cost[i]
-                    if BINARY_REWARDS:
-                        r = +1
-                    player.reward(r, i, self.done)
-                else:
-                    r = -reward - self.cost[i]
-                    if BINARY_REWARDS:
-                        r = -1
-                    player.reward(r, i, self.done)
-                c += 1
-                i = self.next_player(i)
+            self.reward_round(reward, winner1, winner2)  # reward the players who won and lost
+
             self.stack = 0
 
         else:
-            # important: reward players in the order that they played because of
-            # synchronization in multiprocessing
-            i = self.hand_started_by
-            c = 0
-            while c < 4:
-                player = self.players[i]
-                # the reward is just the cost of the cards played
-                # by each player
-                r = -self.cost[i]
-                if BINARY_REWARDS:
-                    r = 0
-                player.reward(r, i)
-                c += 1
-                i = self.next_player(i)
+            self.reward_cost()  # just reward the cost of each card played by the players
         self.last_dominant = self.dominant
         self.dominant = dominant
         # clear the hand and set the new next player
         self.last_hand = self.hand
-        self.last_hand_played_by = player_idx
+        self.last_hand_played_by = self.player_idx
         self.cost = [0, 0, 0, 0]
         self.hand = [None for _ in range(4)]
         self.hand_idx = 0
@@ -254,13 +265,48 @@ class Game():
             self.dominant = None
         self.DEBUG("Ending hand", self.hands, "\n")
 
-    def play_game(self):
-        for i in range(13):
-            if self.game_over():
-                w = self.end_game()
-                return w
-            self.play_hand()
-        return self.end_game()
+    def reward_cost(self):
+        """
+        Rewards that are given after each round when no one wins the round
+        """
+        # important: reward players in the order that they played because of
+        # synchronization in multiprocessing
+        i = self.hand_started_by
+        c = 0
+        while c < 4:
+            player = self.players[i]
+            # the reward is just the cost of the cards played
+            # by each player
+            r = -self.cost[i]
+            if BINARY_REWARDS:
+                r = 0
+            player.reward(r, i)
+            c += 1
+            i = self.next_player(i)
+
+    def reward_round(self, reward, winner1, winner2):
+        """
+        Rewards that are given when a team wins a round
+        """
+        # important: reward players in the order that they played because of
+        # synchronization in multiprocessing
+
+        i = self.hand_started_by
+        c = 0
+        while c < 4:
+            player = self.players[i]
+            if i == winner1 or i == winner2:
+                r = reward - self.cost[i]
+                if BINARY_REWARDS:
+                    r = +1
+                player.reward(r, i, self.done)
+            else:
+                r = -reward - self.cost[i]
+                if BINARY_REWARDS:
+                    r = -1
+                player.reward(r, i, self.done)
+            c += 1
+            i = self.next_player(i)
 
     def end_game(self):
         """
@@ -303,8 +349,8 @@ class Game():
         """
         card = self.peek_card(move, player)
         return card is not None and \
-               (self.empty_hand() or \
-                self.hand[0].suit == card.suit or \
+               (self.empty_hand() or
+                self.hand[0].suit == card.suit or
                 not self.has_suit(player))
 
     def has_suit(self, player):
@@ -335,10 +381,6 @@ class Game():
                 index = i
         # print(str(top))
         return index
-
-    def DEBUG(self, *args):
-        if self.debug:
-            print(*args)
 
     def higher_card(self, card1: Card, card2: Card) -> bool:
         """
@@ -430,3 +472,8 @@ class Game():
         if card.suit == self.rung:
             cost = cost * 2
         return cost / 100
+
+    def DEBUG(self, *args):
+        if self.debug:
+            print(*args)
+
