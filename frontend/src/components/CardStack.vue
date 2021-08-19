@@ -19,14 +19,24 @@ import Card from "./Card.vue";
 export default {
   components: { Card },
   props: {
-    position: String,
-    height: String,
-    width: String,
+    position: {
+      type: String,
+      required: true,
+    },
+    height: {
+      type: String,
+      default: '100',
+      required: false,
+    },
+    width: {
+      type: String,
+      default: '100',
+      required: false,
+    },
+    // cards: Array,
   },
   data: () => {
     return {
-      height: "100",
-      width: "100",
       alt: "some alt",
       // position: "left", // up, down, left, right
       cards: [
