@@ -8,7 +8,19 @@
     :height="height"
     :width="width"
   /> -->
-  <CardStack :height="height" :width="width" position="left" />
+  <div id="app">
+    <b-row>
+      <CardStack position="top" />
+    </b-row>
+    <b-row>
+      <CardStack position="left" />
+      <b-col lg="8" md="8"></b-col>
+      <CardStack position="right" />
+    </b-row>
+    <b-row>
+      <CardStack position="bottom" />
+    </b-row>
+  </div>
 </template>
 
 <script>
@@ -34,6 +46,20 @@ export default {
       suite: "diamond",
       card: "3",
       pos: "left",
+      cards: [
+        {
+          name: "club",
+          img: "2",
+        },
+        {
+          name: "club",
+          img: "3",
+        },
+        {
+          name: "spade",
+          img: "4",
+        },
+      ],
     };
   },
 };
