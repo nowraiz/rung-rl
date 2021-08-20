@@ -69,3 +69,6 @@ class State:
     """
     Converts the state into a dictionary based on the unified schema to transfer"""
     def create_state_dict(self):
+        state_dict = {}
+        for player in range(4):
+
