@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from rung_rl.utils import init
+from rung_rl.utils.util_functional import init
 from .distributions import Categorical
 
 
