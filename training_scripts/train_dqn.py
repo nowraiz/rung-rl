@@ -97,7 +97,7 @@ def evaluate(num_games, players, idx=0, debug=False):
 
 
 if __name__ == "__main__":
-    train_dqn(1)
+    # train_dqn(1)
     agent = DQNAgent(False, True)
     agent.load_model("final")
     shaped_agent = DQNAgent(False, True)
@@ -105,5 +105,5 @@ if __name__ == "__main__":
     shaped_agent.eval = True
     agent.eval = True
     players = [agent, shaped_agent, agent, shaped_agent]
-    # players = [shaped_agent, RandomAgent(), shaped_agent, RandomAgent()]
-    evaluate(3000, players, 1, False)
+    players = [shaped_agent, RandomAgent(), shaped_agent, RandomAgent()]
+    evaluate(1000, players, 0, False)
