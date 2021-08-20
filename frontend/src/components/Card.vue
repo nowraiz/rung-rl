@@ -1,5 +1,5 @@
 <template>
-  <img :alt="alt" :src="getImgUrl()" :height="height" :width="width" />
+  <b-img :alt="alt" :src="getImgUrl(visible)" :height="height" :width="width" />
 </template>
 
 
@@ -8,19 +8,32 @@ export default {
   props: {
     alt: String,
     card: String,
-    suite: String,
+    suit: String,
     height: String,
     width: String,
+    visible: {
+      type: Boolean,
+      default: false,
+    },
   },
 
   methods: {
-    getImgUrl() {
-      var images = require.context(
-        "../assets/public/static/images/cards/",
+    getImgUrl(is_visible) {
+      if (is_visible === true) {
+        let images = require.context(
+          "../assets/public/static/images/cards/",
+          true,
+          /\.png$/
+        );
+        return images("./" + this.suit + "/" + this.card + ".png");
+      }
+      // down card get
+      let images = require.context(
+        "../assets/public/static/images/cards/back/",
         true,
         /\.png$/
       );
-      return images("./" + this.suite + "/" + this.card + ".png");
+      return images("./blue.png");
     },
   },
 };
