@@ -25,7 +25,8 @@ class State:
                  hand_idx=None, hand_place=None, dominant=None, last_hand=None, last_hand_played_by=None,
                  highest=None, last_dominant=None, cards_played=None, cards_played_by=None,
                  score=None, enemy_score=None, highest_card=None, higher_cards=None, winning_round=None,
-                 last_turn=None, next_turn=None, has_partner_played=None, action_mask=None):
+                 last_turn=None, next_turn=None, has_partner_played=None, action_mask=None, done=False,
+                 winner=None):
         self.cards = cards  # these cards are for every player (for oracle)
         self.hand = hand
         self.hand_played_by = hand_played_by
@@ -50,6 +51,8 @@ class State:
         self.cards_played_by = cards_played_by
         self.has_partner_played = has_partner_played
         self.action_mask = action_mask
+        self.done = done
+        self.winner = winner
 
     """
     Returns the observation from the given state used to vectorize the state
@@ -65,10 +68,4 @@ class State:
 
     def get_action_mask(self):
         return self.action_mask
-
-    """
-    Converts the state into a dictionary based on the unified schema to transfer"""
-    def create_state_dict(self):
-        state_dict = {}
-        for player in range(4):
 

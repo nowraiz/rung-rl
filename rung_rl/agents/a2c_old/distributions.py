@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from rung_rl.utils import AddBias, init
+from rung_rl.utils.util_functional import AddBias, init
 
 """
 Modify standard PyTorch distributions so they are compatible with this code.

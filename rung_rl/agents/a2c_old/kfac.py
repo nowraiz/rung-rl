@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rung_rl.utils import AddBias
+from rung_rl.utils.util_functional import AddBias
 
 
 # TODO: In order to make this code faster:

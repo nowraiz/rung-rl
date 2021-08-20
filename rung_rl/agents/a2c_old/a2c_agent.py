@@ -2,7 +2,7 @@ import os
 
 import torch
 
-import rung_rl.utils as utils
+import rung_rl.utils.util_functional as utils
 from rung_rl.obs import Observation
 from .a2c import A2C_ACKTR
 from .model import Policy

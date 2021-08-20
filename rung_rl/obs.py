@@ -1,5 +1,5 @@
 from rung_rl.deck import Card, Suit
-from rung_rl.utils import flatten
+from rung_rl.utils.util_functional import flatten
 
 SUIT_SCALING = 3
 FACE_SCALING = 13

@@ -45,6 +45,7 @@ class Game():
         self.cards_played_idx = 0
         self.current_state = None  # the current complete state of the game
         self.player_idx = [None, None, None, None]
+        self.winner = None  # the winner of the game at the end
 
     def sort_all_cards(self):
         for i in range(4):
@@ -86,7 +87,7 @@ class Game():
         Initialize the players card and sets the rung as directed by the player and populates the
         remaining cards
         """
-        assert (self.rung == None)
+        assert (self.rung is None)
         # initialize the game and set the rung
         self.populate_initial()
         # toss for the player that selects rung
@@ -143,7 +144,7 @@ class Game():
                                    None if self.hand_idx == 0 else self.prev_player(),
                                    None if self.hand_idx == 3 else self.next_player(),
                                    int(self.partner_player() in self.player_idx),
-                                   self.action_mask(self.current_player))
+                                   self.action_mask(self.current_player), self.done, self.winner)
 
     def play_hand(self):
         """
@@ -243,6 +244,7 @@ class Game():
                 # game is done
                 self.done = True
                 reward += 43 / REWARD_SCALE
+                self.winner = winner1
                 # reward = 1
                 self.DEBUG("WINNER: ", winner1, winner2)
             # IMPORTANT: Rewards players in the order that they played
