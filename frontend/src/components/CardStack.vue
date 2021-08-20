@@ -1,15 +1,18 @@
 <template>
-  <div :class="classObjectUpper">
-    <div v-for="(card, idx) in cards" :key="idx" :class="classObject">
-      <p>CARD: {{ card.name }}</p>
+  <div>
+    <!-- <center> -->
+    <div v-for="(card, idx) in cards" :key="idx">
+      <p>CARD: {{ card.face }} of {{ card.suit }}</p>
       <Card
         :alt="alt"
-        :card="card.img"
-        :suite="card.name"
+        :card="card.face"
+        :suit="card.suit"
         :height="height"
         :width="width"
+        :visible="visible"
       />
     </div>
+    <!-- </center> -->
   </div>
 </template>
 
@@ -25,35 +28,24 @@ export default {
     },
     height: {
       type: String,
-      default: '100',
+      default: "100",
       required: false,
     },
     width: {
       type: String,
-      default: '100',
+      default: "100",
       required: false,
     },
-    // cards: Array,
-  },
-  data: () => {
-    return {
-      alt: "some alt",
-      // position: "left", // up, down, left, right
-      cards: [
-        {
-          name: "club",
-          img: "2",
-        },
-        {
-          name: "club",
-          img: "3",
-        },
-        {
-          name: "spade",
-          img: "4",
-        },
-      ],
-    };
+    cards: {
+      type: Array,
+      default: () => {
+        return [];
+      },
+    },
+    visible: {
+      type: Boolean,
+      default: false,
+    },
   },
   computed: {
     classObjectUpper: function () {
