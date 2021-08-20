@@ -2,93 +2,50 @@
   "state": {
     "player_id": 2,
     "stacks": 4,
-    "score_0_2": 5,
-    "score_1_3": 1,
+    "score_cyborg": 5,
+    "score_ai": 1,
     "round": 7,
-    "hand": [],
+    "rung": "CLUBS",
+    "hand": [
+      {
+        "player": 3,
+        "face": "ACE",
+        "suit": "SPADES"
+      },
+      {},
+      {},
+      {}
+    ],
     "hand_idx": 3,
     "hand_started_by": 3,
     "done": false,
-    "winner_1": null,
-    "winner_2": {},
+    "winner": null,
     "current_player": 1,
-    "player_0": {
-      "cards": [
-        {
-          "index": 0,
-          "face": "ACE",
-          "suit": "SPADES",
-          "played": true
-        },
-        {
-          "index": 1,
-          "face": "2",
-          "suit": "CLUBS",
-          "played": false
-        },
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {}
-      ]
-    },
-    "player_1": {
-      "cards": [
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {}
-      ]
-    },
-    "player_2": {
-      "cards": [
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {}
-      ]
-    },
-    "player_3": {
-      "cards": [
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {}
-      ]
-    }
+    "player_cards": [
+      {
+        "cards": [
+          {
+            "index": 0,
+            "face": "ACE",
+            "suit": "SPADES",
+            "played": true,
+            "playable": true
+          }
+        ],
+        "visible": false
+      },
+      {
+        "cards": [],
+        "visible": false
+      },
+      {
+        "cards": [],
+        "visible": true
+      },
+      {
+        "cards": [],
+        "visible": false
+      }
+    ]
   }
 }
