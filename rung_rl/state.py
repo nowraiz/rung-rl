@@ -65,3 +65,7 @@ class State:
 
     def get_action_mask(self):
         return self.action_mask
+
+    """
+    Converts the state into a dictionary based on the unified schema to transfer"""
+    def create_state_dict(self):
