@@ -1,6 +1,6 @@
 from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
-from rung_rl.rung import Game
+from rung_rl.game.Game import Game
 
 BEST_MODEL_PATH = ""
 

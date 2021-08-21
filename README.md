@@ -23,7 +23,7 @@ Here is an example of how to play a game against a random agent
 ```python
 from rung_rl.agents.random_agent import RandomAgent
 from rung_rl.agents.human_agent import HumanAgent
-from rung_rl.rung import Game
+from rung_rl.game.Game import Game
 
 # setup the players
 players = [HumanAgent(0), RandomAgent(), RandomAgent(), RandomAgent()]
@@ -67,7 +67,7 @@ and run the game using the endpoints described before. Such as:
 ```python
 from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
-from rung_rl.rung import Game
+from rung_rl.game.Game import Game
 
 agent = DQNAgent()  # create a DQN agent
 agent.load_model_from_path("saved_models/dqn_best_recurrent/model_dqn_final")  # load the pre-trained model 

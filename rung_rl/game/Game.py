@@ -1,23 +1,25 @@
 import random
+import uuid
 
 from rung_rl.deck import Deck, Card
 from rung_rl.deck import Suit, Face
+from rung_rl.game.configurations.DefaultGameConfiguration import DefaultGameConfiguration
 from rung_rl.state import State
 
 NUM_PLAYERS = 4  # the number of players is fixed for RUNG i.e. 4
 NUM_TEAMS = 2  # the number of teams is fixed for RUNG i.e. 2
 REWARD_SCALE = 56
-ACE_RULE = False  # if the round can be won by an Ace or not
-BINARY_REWARDS = False  # if the reward system should be binary or not
 
 
-class Game():
+class Game:
     """
     A round represents a round of the whole game. The rules are enforced at all times (it can not be in 
     an invalid state)
     """
 
-    def __init__(self, players, render=False, debug=False, sync=True):
+    def __init__(self, players, render=False, debug=False, sync=True, id=None, config=None):
+        self.id = id if id is not None else uuid.uuid4()  # the unique id for the game for replay storage
+        self.config = config if config else DefaultGameConfiguration()
         self.sync = sync  # if the game should run in synchronous mode or an asynchronous mode.
         self.hand_idx = 0  # the index of the next hand
         self.hands = 0  # the number of hands played
@@ -131,8 +133,6 @@ class Game():
             highest = self.player_idx[highest_idx]
             highest_card = self.hand[highest_idx]
 
-        player = self.players[self.current_player]
-
         self.current_state = State(self.player_cards, self.current_player, self.hand, self.player_idx, self.stack,
                                    self.rung if self.rung else None, self.hands + 1, self.hand_idx,
                                    self.dominant, self.last_hand, self.last_hand_played_by,
@@ -232,7 +232,7 @@ class Game():
         dominant = self.player_idx[idx]  # get the player who played the highest card
         # ADDED ACE RULE TO SEE WHAT CHANGES
         if self.hands == 13 or ((dominant == self.dominant and self.hands > 2) and
-                                (not (not ACE_RULE and highest_card.face == Face.ACE))):
+                                (not (not self.config.ACE_WINS and highest_card.face == Face.ACE))):
             winner1 = dominant
             winner2 = (dominant + 2) % 4
             reward = self.stack / REWARD_SCALE
@@ -240,7 +240,7 @@ class Game():
             self.scores[winner1] += self.stack
             self.scores[winner2] += self.stack
             self.DEBUG("Total Rounds for {}, {}: {}".format(winner1, winner2, self.scores[winner1]))
-            if max(self.scores) > 6:
+            if max(self.scores) >= self.config.ROUNDS_TO_WIN:
                 # game is done
                 self.done = True
                 reward += 43 / REWARD_SCALE
@@ -280,7 +280,7 @@ class Game():
             # the reward is just the cost of the cards played
             # by each player
             r = -self.cost[i]
-            if BINARY_REWARDS:
+            if self.config.BINARY_REWARDS:
                 r = 0
             player.reward(r, i)
             c += 1
@@ -299,12 +299,12 @@ class Game():
             player = self.players[i]
             if i == winner1 or i == winner2:
                 r = reward - self.cost[i]
-                if BINARY_REWARDS:
+                if self.config.BINARY_REWARDS:
                     r = +1
                 player.reward(r, i, self.done)
             else:
                 r = -reward - self.cost[i]
-                if BINARY_REWARDS:
+                if self.config.BINARY_REWARDS:
                     r = -1
                 player.reward(r, i, self.done)
             c += 1

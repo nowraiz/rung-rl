@@ -4,8 +4,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 from rung_rl.agents.ppo.ppo_agent import PPOAgent
 from rung_rl.agents.random_agent import RandomAgent
-from rung_rl.env import RungEnv
-from rung_rl.rung import Game
+from rung_rl.game.env import RungEnv
+from rung_rl.game.Game import Game
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 PROCESSES = 12

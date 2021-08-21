@@ -5,7 +5,7 @@ from rung_rl.agents.a2c.a2c_agent import A2CAgent
 from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
 from rung_rl.agents.random_agent import RandomAgent
-from rung_rl.rung import Game
+from rung_rl.game.Game import Game
 
 torch.set_num_threads(12)
 

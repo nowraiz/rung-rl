@@ -3,7 +3,7 @@ from rung_rl.agents.dqn.dqn_agent import DQNAgent
 from rung_rl.agents.human_agent import HumanAgent
 from rung_rl.agents.nfsp.nfsp_agent import NFSPAgent
 from rung_rl.agents.random_agent import RandomAgent
-from rung_rl.rung import Game
+from rung_rl.game.Game import Game
 
 CONCURRENT_GAMES = 128
 

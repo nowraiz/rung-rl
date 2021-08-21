@@ -1,7 +1,7 @@
 from torch.multiprocessing import Pipe, Process
 
 from rung_rl.agents.ppo.ppo_agent import PPOAgent
-from rung_rl.rung import Game
+from rung_rl.game.Game import Game
 
 NUM_PLAYERS = 4  # the number of players is fixed for RUNG i.e. 4
 NUM_TEAMS = 2  # the number of teams is fixed for RUNG i.e. 2
@@ -9,7 +9,7 @@ REWARD_SCALE = 56
 
 """
 This class is wrapped Game environment that can be used to run multiple games
-in parallet using multiprocessing. It encapsulates the agents and the game together
+in parallel using multiprocessing. It encapsulates the agents and the game together
 to make it easy for the game to played by using this class. The only thing required 
 for the game is the initial parameters of the model of the agent.
 """

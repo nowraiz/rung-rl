@@ -4,7 +4,7 @@ import time
 import rung_rl.plotter as plt
 from rung_rl.agents.ppo.ppo_agent import PPOAgent
 from rung_rl.agents.random_agent import RandomAgent
-from rung_rl.rung import Game
+from rung_rl.game.Game import Game
 
 # from multiprocessing import Pool
 # import multiprocessing as mp
