@@ -22,7 +22,8 @@ def create_game(req: Request, res: Response):
     Create a new single player game session
     """
     session_id = create_new_session(req, res)
-    # session_manager.create_single_player_game(session_id)
+    game = session_manager.create_single_player_game(session_id)
+    game.signal_start()
 
 
 @app.get("/join")
@@ -44,6 +45,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 def create_new_session(req: Request, res: Response):
+    """
+    Checks if a client has been assigned a session id, if so, returns it. Otherwise
+    creates a new session id and returns it
+    """
     session_id = req.cookies.get("session_id", None)
 
     if session_id is None:

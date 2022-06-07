@@ -16,6 +16,9 @@ def plot(x, radiant, dire):
     if dire:
         plot_dire(x, dire)
     plot_trendline(x)
+    plt.title("Win-rate through Games")
+    plt.xlabel("Games")
+    plt.ylabel("Win-rate")
     plt.legend()
     plt.grid(True, axis='y')
     plt.draw()

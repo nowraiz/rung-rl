@@ -97,7 +97,7 @@ def evaluate(num_games, players, idx=0, debug=False):
 
 
 if __name__ == "__main__":
-    # train_dqn(1)
+    train_dqn(1)
     agent = DQNAgent(False, True)
     agent.load_model("final")
     shaped_agent = DQNAgent(False, True)

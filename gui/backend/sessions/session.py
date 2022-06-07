@@ -14,6 +14,8 @@ class GameSession:
     def __init__(self, players):
         self.players = players
         self.game = Game(players)
+        self.rung_chosen = False
+        self.current_player = None
 
     def step(self, player, move):
         """
